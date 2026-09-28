@@ -1,0 +1,602 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>제갈량 상소문</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;600;700;900&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0e11;
+    --bg-2: #14161b;
+    --card: rgba(255, 255, 255, 0.035);
+    --card-border: rgba(255, 255, 255, 0.08);
+    --text: #e9e6df;
+    --muted: #9a968c;
+    --faint: #5f5c55;
+    --gold: #d4b06a;
+    --gold-soft: rgba(212, 176, 106, 0.14);
+    --seal: #c0392b;
+    --glow-1: rgba(212, 176, 106, 0.10);
+    --glow-2: rgba(192, 57, 43, 0.08);
+    --serif: "Noto Serif KR", "Nanum Myeongjo", "AppleMyungjo", "Batang", serif;
+    --sans: "Pretendard", -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #f5f1e8;
+      --bg-2: #ece6d8;
+      --card: rgba(255, 255, 255, 0.6);
+      --card-border: rgba(60, 45, 20, 0.12);
+      --text: #22201b;
+      --muted: #6d675b;
+      --faint: #a39c8c;
+      --gold: #9a7428;
+      --gold-soft: rgba(154, 116, 40, 0.12);
+      --seal: #b0301f;
+      --glow-1: rgba(154, 116, 40, 0.10);
+      --glow-2: rgba(176, 48, 31, 0.06);
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background:
+      radial-gradient(900px 500px at 85% -10%, var(--glow-1), transparent 60%),
+      radial-gradient(700px 500px at -10% 30%, var(--glow-2), transparent 60%),
+      var(--bg);
+    background-attachment: fixed;
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+    word-break: keep-all;
+    overflow-wrap: break-word;
+  }
+
+  .progress {
+    position: fixed; inset: 0 0 auto 0; height: 2px; z-index: 50;
+    background: linear-gradient(90deg, var(--gold), var(--seal));
+    transform-origin: left; transform: scaleX(0);
+  }
+
+  .wrap { max-width: 780px; margin: 0 auto; padding: 0 24px; }
+
+  /* ---------- Top bar ---------- */
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 22px 0 0;
+    font-size: 13px; color: var(--muted); letter-spacing: 0.02em;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .seal {
+    width: 28px; height: 28px; border-radius: 6px;
+    background: var(--seal); color: #fff4ea;
+    display: grid; place-items: center;
+    font-family: var(--serif); font-weight: 900; font-size: 15px;
+    box-shadow: inset 0 0 0 2px rgba(255,255,255,0.18);
+  }
+  .close-btn {
+    border: 1px solid var(--card-border); background: var(--card);
+    color: var(--muted); font: inherit; font-size: 13px;
+    padding: 6px 12px; border-radius: 999px; cursor: pointer;
+    transition: color .2s, border-color .2s;
+  }
+  .close-btn:hover { color: var(--text); border-color: var(--gold); }
+
+  /* ---------- Hero ---------- */
+  .hero { padding: 56px 0 28px; animation: rise .8s ease both; }
+  .eyebrow {
+    font-size: 13px; letter-spacing: 0.18em; color: var(--gold);
+    text-transform: uppercase; margin-bottom: 14px;
+  }
+  h1 {
+    font-family: var(--serif); font-weight: 700;
+    font-size: clamp(30px, 5.4vw, 46px); line-height: 1.25;
+    margin: 0 0 14px; letter-spacing: -0.01em;
+  }
+  .greeting { color: var(--muted); font-size: 16px; margin: 0; }
+
+  .maxim {
+    margin-top: 36px; padding: 28px 30px;
+    border: 1px solid var(--card-border); border-radius: 18px;
+    background: var(--card);
+    backdrop-filter: blur(8px);
+    position: relative; overflow: hidden;
+    animation: rise .8s .1s ease both;
+  }
+  .maxim::before {
+    content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+    background: linear-gradient(var(--gold), var(--seal));
+  }
+  .maxim-label { font-size: 12px; letter-spacing: 0.16em; color: var(--muted); }
+  .maxim-han {
+    font-family: var(--serif); font-size: clamp(20px, 3.4vw, 26px);
+    font-weight: 600; margin: 10px 0 6px; letter-spacing: 0.08em;
+  }
+  .maxim-ko { font-family: var(--serif); font-size: 16px; margin: 0; }
+  .maxim-src { font-size: 13px; color: var(--muted); margin-top: 10px; }
+
+  /* ---------- Tabs ---------- */
+  .tabs-shell {
+    position: sticky; top: 0; z-index: 20;
+    padding: 14px 0; margin-top: 28px;
+    background: linear-gradient(var(--bg) 70%, transparent);
+  }
+  .tabs {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+    padding: 6px; border-radius: 16px;
+    background: var(--bg-2); border: 1px solid var(--card-border);
+  }
+  .tab {
+    border: 0; background: transparent; color: var(--muted);
+    font: inherit; cursor: pointer; text-align: left;
+    padding: 10px 14px; border-radius: 11px;
+    display: flex; align-items: center; gap: 12px;
+    transition: background .25s, color .25s;
+  }
+  .tab:hover { color: var(--text); }
+  .tab[aria-selected="true"] {
+    background: var(--card); color: var(--text);
+    box-shadow: 0 1px 0 rgba(255,255,255,0.04), 0 6px 20px rgba(0,0,0,0.18);
+    outline: 1px solid var(--card-border);
+  }
+  .tab-num {
+    font-family: var(--serif); font-weight: 900; font-size: 20px;
+    color: var(--faint); transition: color .25s; flex: none;
+  }
+  .tab[aria-selected="true"] .tab-num { color: var(--gold); }
+  .tab-title { font-size: 14px; font-weight: 600; line-height: 1.3; }
+  .tab-meta { font-size: 12px; color: var(--faint); }
+
+  /* ---------- Article ---------- */
+  article { padding: 34px 0 10px; }
+  article.enter { animation: rise .5s ease both; }
+  .chapter-kicker {
+    font-size: 13px; color: var(--gold); letter-spacing: 0.14em; margin-bottom: 8px;
+  }
+  h2 {
+    font-family: var(--serif); font-weight: 700;
+    font-size: clamp(24px, 4vw, 32px); line-height: 1.35; margin: 0 0 8px;
+  }
+  .chapter-sub { color: var(--muted); margin: 0 0 34px; font-size: 15px; }
+  article p {
+    font-family: var(--serif); font-size: 17.5px; line-height: 2;
+    margin: 0 0 22px; color: var(--text);
+  }
+  article p.lead::first-letter {
+    font-size: 3.1em; float: left; line-height: 1; margin: 6px 10px 0 0;
+    color: var(--gold); font-weight: 700;
+  }
+  article h3 {
+    font-family: var(--sans); font-size: 18px; font-weight: 700;
+    margin: 44px 0 14px; display: flex; align-items: baseline; gap: 12px;
+  }
+  article h3 .n {
+    font-family: var(--serif); color: var(--gold); font-size: 14px; font-weight: 600;
+    padding: 2px 8px; border-radius: 6px; background: var(--gold-soft);
+  }
+  .signoff {
+    display: flex; align-items: center; justify-content: flex-end; gap: 14px;
+    margin: 44px 0 0; color: var(--muted); font-family: var(--serif);
+  }
+  .signoff .seal { width: 40px; height: 40px; font-size: 20px; transform: rotate(-4deg); }
+
+  .next-chapter {
+    display: flex; justify-content: space-between; align-items: center; gap: 16px;
+    margin: 40px 0 0; padding: 18px 22px; border-radius: 14px;
+    border: 1px dashed var(--card-border); background: transparent;
+    color: var(--muted); font: inherit; width: 100%; cursor: pointer; text-align: left;
+    transition: border-color .2s, color .2s;
+  }
+  .next-chapter:hover { border-color: var(--gold); color: var(--text); }
+  .next-chapter strong { color: var(--text); font-weight: 600; }
+
+  /* ---------- Today's stratagem ---------- */
+  .today {
+    margin: 56px 0 24px; padding: 26px 28px; border-radius: 18px;
+    background: linear-gradient(135deg, var(--gold-soft), transparent 70%), var(--card);
+    border: 1px solid var(--card-border);
+  }
+  .today-label { font-size: 12px; letter-spacing: 0.16em; color: var(--gold); }
+  .today-row { display: flex; gap: 14px; align-items: flex-start; margin-top: 12px; }
+  .check {
+    appearance: none; flex: none; width: 24px; height: 24px; margin: 2px 0 0;
+    border-radius: 7px; border: 1.5px solid var(--gold); cursor: pointer;
+    display: grid; place-items: center; transition: background .2s;
+  }
+  .check:checked { background: var(--gold); }
+  .check:checked::after { content: "✓"; color: var(--bg); font-weight: 800; font-size: 15px; }
+  .today-text { font-size: 17px; font-weight: 500; margin: 0; }
+  .today.done .today-text { color: var(--muted); text-decoration: line-through; }
+
+  footer {
+    padding: 10px 0 60px; font-size: 12.5px; color: var(--faint);
+    display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px;
+  }
+  kbd {
+    font-family: var(--sans); font-size: 11px; padding: 1px 6px; border-radius: 5px;
+    border: 1px solid var(--card-border); background: var(--card); color: var(--muted);
+  }
+
+  @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; scroll-behavior: auto !important; } }
+
+  @media (max-width: 640px) {
+    .wrap { padding: 0 16px; }
+    .hero { padding-top: 36px; }
+    .maxim, .today { padding: 22px 20px; }
+    .tab { flex-direction: column; align-items: flex-start; gap: 2px; padding: 8px 10px; }
+    .tab-meta { display: none; }
+    article p { font-size: 16.5px; line-height: 1.95; }
+  }
+</style>
+</head>
+<body>
+<div class="progress" id="progress"></div>
+
+<div class="wrap">
+  <div class="topbar">
+    <div class="brand"><span class="seal">亮</span><span>出師表 · 제갈량 상소문</span></div>
+    <button class="close-btn" id="closeBtn" title="Esc">상소를 거두다 ✕</button>
+  </div>
+
+  <header class="hero">
+    <div class="eyebrow" id="dateLine"></div>
+    <h1>주공께 올리는<br>오늘의 상소</h1>
+    <p class="greeting" id="greeting"></p>
+
+    <section class="maxim" aria-label="오늘의 한 구절">
+      <div class="maxim-label">오늘의 한 구절</div>
+      <p class="maxim-han" id="maximHan"></p>
+      <p class="maxim-ko" id="maximKo"></p>
+      <div class="maxim-src" id="maximSrc"></div>
+    </section>
+  </header>
+
+  <div class="tabs-shell">
+    <nav class="tabs" role="tablist" id="tabs"></nav>
+  </div>
+
+  <main>
+    <article id="article" role="tabpanel"></article>
+
+    <section class="today" id="today">
+      <div class="today-label">오늘의 계책 · 하나만 행하시옵소서</div>
+      <div class="today-row">
+        <input type="checkbox" class="check" id="todayCheck" aria-label="오늘의 계책 완료">
+        <label class="today-text" for="todayCheck" id="todayText"></label>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <span>매일 오전 7시, 그리고 주공께서 컴퓨터를 켜실 때마다 올리옵니다.</span>
+    <span><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> 장 넘기기 · <kbd>Esc</kbd> 닫기</span>
+  </footer>
+</div>
+
+<!--
+  ================================================================
+  상소 본문 — 이 아래 CHAPTERS / MAXIMS / STRATAGEMS 를 고치면
+  내용이 바뀝니다. 본문에서 빈 줄은 문단 구분, "## "로 시작하는 줄은
+  소제목입니다.
+  ================================================================
+-->
+<script>
+const CHAPTERS = [
+{
+  id: "claude",
+  num: "壹",
+  tab: "클로드 코드",
+  kicker: "第一章 · 새 병기를 다루는 법",
+  title: "클로드 코드 운용에 관한 상소",
+  sub: "처음 병기를 잡으신 주공께 올리는 여덟 가지 계책",
+  body: `
+신 량이 아뢰옵니다. 주공께서 근래 클로드 코드라는 새 병기를 손에 넣으셨다 들었사옵니다. 이것은 명을 받들어 스스로 글을 짓고, 서책(파일)을 뒤지고, 명령을 실행하는 참모와 같사옵니다. 허나 아무리 뛰어난 참모라도 주공의 뜻을 모르면 헛걸음을 하는 법이옵니다. 처음 병기를 잡으신 주공께 신이 아는 바를 차례로 올리옵니다.
+
+## 뜻을 분명히 하여 명하시옵소서
+
+"좋게 고쳐라"는 명은 장수를 헤매게 하옵니다. 무엇을, 왜, 어떤 모습으로 끝내고 싶으신지를 말씀하시옵소서. "사진 폴더의 파일 이름을 촬영 날짜 순으로 바꾸되, 원본은 건드리지 말라"처럼 목적과 금기와 완성의 모습을 함께 전하시면, 참모는 한 번에 과녁을 맞히옵니다. 말이 길어짐을 두려워 마시옵소서. 짧은 명령보다 넉넉한 설명이 언제나 이기옵니다. 참고할 파일이나 예시가 있다면 함께 내어 주시옵소서.
+
+## 싸우기 전에 먼저 계책을 세우시옵소서
+
+큰일일수록 곧바로 칼을 뽑지 마시옵소서. Shift와 Tab을 함께 눌러 계획 모드로 들어가시면, 참모는 손을 대기 전에 어찌 싸울지를 먼저 아뢰옵니다. 그 계책을 읽어 보시고 마음에 들지 않으면 고치라 하시고, 흡족하실 때 비로소 출병을 명하시옵소서. 계획 모드에서는 참모가 파일을 고치지 않고 살피기만 하니, 마음 놓고 이것저것 물어보셔도 되옵니다. 신이 남만을 칠 때도 먼저 지도를 펼치고 길을 헤아렸사옵니다. 계획 없이 시작한 싸움은 이겨도 뒷수습이 길어지옵니다.
+
+## 군령을 문서로 남기시옵소서
+
+/init 이라 명하시면 참모가 진영을 두루 살피고 CLAUDE.md라는 군령서를 짓사옵니다. 여기에 "답은 한국어로 하라", "사진 원본은 절대 지우지 말라", "나는 초보이니 쉬운 말로 설명하라" 같은 주공의 원칙을 적어 두시옵소서. 참모는 출정할 때마다 이 문서를 먼저 읽으니, 같은 말씀을 거듭하실 수고가 사라지옵니다. 참모가 같은 실수를 두 번 하거든, 그 교훈을 군령서에 한 줄 더하시옵소서.
+
+## 작은 승리를 쌓으시옵소서
+
+한 번에 천하를 얻으려 하면 대개 모두 잃사옵니다. 기능 하나, 화면 하나씩 명하시고, 하나가 이루어질 때마다 눈으로 확인하시옵소서. 그리고 "지금까지를 커밋해 두라"고 명하시어 깃(git)에 진지를 쌓으시옵소서. 커밋은 퇴로와 같아서, 뒤에 일이 틀어져도 언제든 그 자리로 물러날 수 있사옵니다. 퇴로를 확보한 장수만이 과감하게 나아갈 수 있사옵니다.
+
+## 길을 잘못 들면 멈추게 하시옵소서
+
+참모가 엉뚱한 곳으로 달려가면 Esc를 눌러 즉시 멈추게 하시옵소서. Esc를 두 번 누르시면 앞선 명령으로 되돌아가 다시 명하실 수 있사옵니다. 전혀 다른 일을 시작하실 때는 /clear로 군막을 비우시고, 대화가 너무 길어졌다면 /compact로 요점만 남기시옵소서. 머릿속이 어지러운 참모는 판단이 흐려지는 법이옵니다.
+
+## 모르는 것을 부끄러워 마시옵소서
+
+주공께서는 스스로 초보라 하셨으나, 그것이 오히려 큰 무기이옵니다. "방금 한 일을 초보자에게 설명하듯 말해 달라", "이 명령은 무엇을 하는 것이냐"고 서슴없이 물으시옵소서. 참모는 싫증 내지 않고 몇 번이고 답하옵니다. 결과를 그대로 믿지 마시고 "제대로 되었는지 직접 확인해 보라"고 명하시면, 참모는 스스로 시험하고 잘못을 바로잡사옵니다. 화면이 이상하면 갈무리한 그림을 붙여 보여 주시옵소서. 백 마디 설명보다 한 장의 그림이 빠르옵니다.
+
+## 자주 쓰는 명은 병법서로 엮으시옵소서
+
+같은 부탁을 여러 번 하게 되거든, 그것을 스킬이나 슬래시 명령으로 만들어 달라 청하시옵소서. 예컨대 "촬영을 마친 날의 정리 절차"를 한 번 엮어 두시면, 다음부터는 짧은 한마디로 참모가 그 절차를 처음부터 끝까지 행하옵니다. 반복을 줄이는 것이 곧 전력을 늘리는 길이옵니다.
+
+## 권한은 신중히 내리시옵소서
+
+참모가 파일을 지우거나 밖으로 무엇을 보내려 할 때는 반드시 한 번 더 살피시옵소서. 무엇을 하려는지 모르겠거든 허락하기 전에 까닭을 물으시옵소서. 신뢰는 차츰 쌓는 것이지 첫날 모두 내어 주는 것이 아니옵니다. 처음에는 참모가 매번 허락을 구하는 것이 번거로우시겠으나, 그 물음 하나하나가 주공께서 병기의 성질을 배우시는 수업이옵니다. 자주 허락하는 안전한 일만 골라 차츰 풀어 주시옵소서.
+
+신이 바라옵건대, 하루에 한 가지씩만 새로 시험해 보시옵소서. 오늘은 계획 모드, 내일은 군령서, 모레는 커밋. 석 달이 지나면 주공께서는 이 병기를 신보다도 능숙히 다루실 것이옵니다. 혹여 막히시거든 참모에게 "내가 무엇을 모르는지도 모르겠다, 무엇부터 물어야 하느냐"고 물으시옵소서. 길을 잃었을 때 길을 묻는 것 또한 병법이옵니다.
+`
+},
+{
+  id: "life",
+  num: "貳",
+  tab: "사업과 삶",
+  kicker: "第二章 · 천하를 어찌 도모할 것인가",
+  title: "사업과 삶의 방향에 관한 상소",
+  sub: "초려에서 올렸던 지도처럼, 주공께서 서실 자리를 헤아리옵니다",
+  body: `
+신 량이 아뢰옵니다. 옛날 선제께서 초려를 세 번 찾으셨을 때, 신이 올린 것은 화려한 전술이 아니라 '어디에 설 것인가'에 관한 한 장의 지도였사옵니다. 조조는 하늘의 때를 얻었고 손권은 땅의 이로움을 얻었으니, 선제께서는 사람의 화합을 얻어 형주와 익주에 서시라 하였사옵니다. 주공의 사업과 삶 또한 이와 다르지 않사옵니다. 무엇을 할지보다 먼저, 어디에 설지를 정하셔야 하옵니다. 삶의 방향이 흐릿하게 느껴지시는 것은 길을 잃으셨기 때문이 아니라, 갈 수 있는 길이 많기 때문이옵니다.
+
+## 싸울 땅을 좁히시옵소서
+
+모든 손님을 얻으려는 자는 어떤 손님에게도 기억되지 못하옵니다. 주공께서 가장 잘하시는 일, 남들이 기꺼이 값을 치르는 일, 그리고 오래 해도 지치지 않는 일, 이 셋이 겹치는 땅을 찾으시옵소서. 그곳이 주공의 형주이옵니다. 주공께서 사진을 하시니, 이를테면 '무엇이든 찍는 사진가'보다 '이런 사진이라면 이 사람'이라 불리는 편이 훨씬 강하옵니다. 그 밖의 땅은 당분간 탐내지 마시옵소서. 거절하는 용기가 곧 방향이옵니다.
+
+## 군량을 먼저 헤아리시옵소서
+
+신이 북벌에서 번번이 물러난 것은 적이 강해서가 아니라 군량이 떨어졌기 때문이옵니다. 꿈이 아무리 커도 매달 들어오고 나가는 돈을 모르면 오래 싸울 수 없사옵니다. 한 달에 한 번, 수입과 지출과 버틸 수 있는 날수를 적어 보시옵소서. 적어도 반년을 버틸 군량이 있어야 조급하지 않은 결정을 내리실 수 있사옵니다. 신이 목우와 유마를 만든 것도 결국 군량을 나르기 위함이었사옵니다.
+
+## 작게 시험하고 크게 거시옵소서
+
+새 사업이나 새 길이 떠오르면 곧바로 전군을 움직이지 마시옵소서. 먼저 작은 척후를 보내시옵소서. 손님 세 사람에게 먼저 물어보고, 한 달만 시범으로 해 보고, 반응이 오는 곳에 비로소 병력을 더하시옵소서. 클로드 코드로 간단한 소개 페이지나 신청서를 하루 만에 만들어 반응을 살피는 것도 좋은 척후이옵니다. 실패는 작을 때 값이 싸고, 성공은 확인한 뒤에 키워야 단단하옵니다.
+
+## 사람을 얻으시옵소서
+
+천하는 혼자 얻는 것이 아니옵니다. 한 번 거래한 손님이 다시 찾게 하는 것이 새 손님 열을 찾는 것보다 쉽사옵니다. 주공을 믿어 주는 사람에게 먼저 정성을 다하시고, 배울 만한 이가 있으면 삼고초려의 마음으로 찾아가시옵소서. 또한 곁에 쓴소리를 하는 이를 두시옵소서. 선제께서 "마속은 말이 실제보다 앞서니 크게 쓰지 말라" 하셨으나, 신이 그 말씀을 따르지 않아 가정을 잃었사옵니다. 듣기 좋은 말만 곁에 두면 반드시 한 번은 크게 잃사옵니다.
+
+## 남과 견주지 마시옵소서
+
+조조의 백만 대군을 부러워하였다면 신은 촉을 세우지 못하였을 것이옵니다. 남의 속도, 남의 성과, 남의 화려한 겉모습은 주공의 지도가 아니옵니다. 어제의 주공과만 견주시옵소서. 한 해 전의 주공보다 한 걸음이라도 나아가 있다면, 그것이 곧 승리이옵니다.
+
+## 모든 일을 몸소 하지 마시옵소서
+
+신의 가장 큰 허물을 고백하옵니다. 신은 곤장 스무 대 이상의 형벌까지 모두 몸소 살폈사옵니다. 사마의가 이를 전해 듣고 "제갈량은 먹는 것은 적고 일은 많으니 오래 가지 못하리라" 하였고, 과연 신은 오장원에서 뜻을 이루지 못하고 쓰러졌사옵니다. 주공께서는 신의 길을 걷지 마시옵소서. 되풀이되는 일은 도구에 맡기시고, 클로드 코드 같은 참모를 부리시고, 남에게 맡길 수 있는 일은 맡기시옵소서. 주공의 시간은 주공만이 할 수 있는 일, 곧 판단하고 창조하고 사람을 만나는 일에 쓰셔야 하옵니다.
+
+## 몸과 마음이 곧 본진이옵니다
+
+잠과 끼니와 걷기를 소홀히 하는 자는 결국 가장 중요한 싸움에서 지옵니다. 방향이 흐릿할 때는 더 오래 고민하기보다 먼저 푹 자고 한참 걸으시옵소서. 맑은 머리에서 맑은 계책이 나오옵니다. 신은 이 가르침을 몸으로 지키지 못하였기에 더욱 간절히 아뢰옵니다. 한 해를 앞당기려다 십 년을 잃지 마시옵소서.
+
+## 매주 한 번 군막에 앉으시옵소서
+
+한 주에 한 번 조용히 앉아 세 가지를 적으시옵소서. 이번 주에 잘된 일, 잘못된 일, 다음 주에 반드시 할 한 가지. 이 작은 의식이 쌓이면 주공의 삶은 흘러가는 것이 아니라 이끄는 것이 되옵니다. 그리고 한 달에 한 번은 그 기록을 모아 읽으시며, 가는 길이 처음 세운 뜻과 어긋나지 않았는지 살피시옵소서.
+
+신은 본디 남양에서 밭을 갈던 사람이었사옵니다. 큰 뜻은 하루아침에 이루어지지 않으며, 담박하지 않으면 뜻을 밝힐 수 없고 고요하지 않으면 멀리 이를 수 없사옵니다. 주공께서 조급함을 내려놓으실 때, 길은 스스로 모습을 드러내옵니다.
+`
+},
+{
+  id: "photo",
+  num: "參",
+  tab: "사진의 길",
+  kicker: "第三章 · 빛을 부리는 병법",
+  title: "사진 작업 전반에 관한 상소",
+  sub: "바람을 빌린 것이 아니라 바람이 올 때를 알았을 뿐이옵니다",
+  body: `
+신 량이 아뢰옵니다. 신은 적벽에서 동남풍을 기다렸사옵니다. 세상은 신이 바람을 빌렸다 하나, 실은 바람이 올 때를 알았을 뿐이옵니다. 사진 또한 그러하여, 빛을 만드는 것이 아니라 빛이 오는 때와 자리를 아는 것이옵니다. 주공의 사진 작업 전반에 대하여 신의 소견을 올리옵니다.
+
+## 빛을 먼저 보시옵소서
+
+피사체보다 빛을 먼저 보시옵소서. 해 뜬 직후와 해 지기 직전의 한 시간, 흐린 날의 부드러운 빛, 창가로 비껴드는 옆빛은 어떤 장비보다 큰 힘을 가지옵니다. 촬영 장소에 가시면 셔터를 누르기 전에 빛이 어디서 와서 어디로 떨어지는지, 그림자가 어디에 고이는지부터 살피시옵소서. 빛의 방향을 읽는 눈이 곧 사진가의 병법이옵니다. 같은 장소라도 아침과 저녁, 맑은 날과 흐린 날에 모두 다른 얼굴을 보이니, 마음에 드는 곳이 있거든 여러 번 찾아가시옵소서.
+
+## 장비보다 눈을 기르시옵소서
+
+좋은 칼이 명장을 만드는 것이 아니옵니다. 새 렌즈가 탐날 때는 스스로 물으시옵소서. "지금 장비의 한계 때문에 찍지 못한 사진이 무엇인가?" 답이 분명하지 않다면 그 돈으로 길을 떠나시거나 사진집을 사시옵소서. 거장들의 사진을 오래 들여다보시고, 그가 왜 그 자리에서 그 순간에 셔터를 눌렀는지 헤아려 보시옵소서. 또한 렌즈 하나만 들고 한 달을 다녀 보시옵소서. 제약이 곧 창의의 어머니이옵니다.
+
+## 구도는 빼는 데서 시작하옵니다
+
+좋은 구도는 무엇을 넣을지보다 무엇을 뺄지에서 나오옵니다. 셔터를 누르기 전 화면의 네 귀퉁이를 한 번씩 훑어보시고, 주제와 상관없는 것이 들어와 있다면 한 걸음 다가서거나 자리를 옮기시옵소서. 발로 찍은 사진이 줌으로 당긴 사진을 이기옵니다.
+
+## 많이 찍되 엄하게 고르시옵소서
+
+장수는 병사를 많이 모으되 정예만 앞세우옵니다. 촬영 때는 아낌없이 찍으시되, 고를 때는 냉정하시옵소서. 비슷한 사진 열 장 가운데 한 장만 남기는 습관이 주공의 안목을 날카롭게 하옵니다. 사진가는 가장 약한 사진으로 평가받는 법이니, 애매한 것은 과감히 버리시옵소서. 고를 때는 바로 고르지 마시고 하루쯤 묵혀 두시옵소서. 찍은 날의 감정이 가라앉아야 사진이 제 모습을 드러내옵니다.
+
+## 한 가지 색으로 진을 치시옵소서
+
+보정의 색과 톤이 사진마다 다르면 보는 이는 주공을 기억하지 못하옵니다. 주공만의 색을 몇 가지 프리셋으로 정해 두시고 꾸준히 쓰시옵소서. 일관됨이 곧 이름이 되옵니다. 한 장의 걸작보다 열두 장이 한 목소리를 내는 연작이 더 강하옵니다. 계절 하나, 동네 하나, 사람 하나를 주제로 긴 연작을 시작해 보시옵소서.
+
+## 군량 창고를 지키시옵소서
+
+사진가의 군량은 원본 파일이옵니다. 한 번 잃으면 다시 찍을 수 없사옵니다. 사본은 셋, 저장 매체는 둘, 그중 하나는 다른 장소에 두는 3-2-1의 원칙을 반드시 지키시옵소서. 촬영한 날 백업을 마치기 전에는 메모리 카드를 지우지 마시옵소서. 이것은 신이 가장 엄히 올리는 군령이옵니다.
+
+## 참모를 부려 잡무를 덜어내시옵소서
+
+파일 이름 바꾸기, 촬영 날짜별 폴더 정리, 웹에 올릴 사진 크기 줄이기, 백업 확인, 포트폴리오 웹사이트 만들기. 이런 일은 클로드 코드에게 맡기실 수 있사옵니다. "이 폴더의 사진을 촬영일별로 정리하는 스크립트를 만들어 달라, 원본은 복사만 하라"고 명하시옵소서. 사진 설명글이나 포트폴리오 소개문의 초안을 부탁하시고, 주공의 말로 다듬으셔도 좋사옵니다. 주공의 손은 셔터와 선택에만 쓰시옵소서.
+
+## 의뢰 작업과 나의 작업을 함께 지키시옵소서
+
+돈을 벌기 위한 촬영은 성을 지키는 일이고, 스스로를 위한 촬영은 영토를 넓히는 일이옵니다. 의뢰만 하다 보면 눈이 무뎌지고, 개인 작업만 하다 보면 군량이 떨어지옵니다. 한 달에 하루는 누구의 주문도 받지 않은 사진을 찍으시옵소서. 의뢰인과는 촬영 전에 원하는 결과물의 예시 사진을 함께 보며 기대를 맞추시옵소서. 싸움은 출정 전에 절반이 결정되옵니다. 그리고 주공만의 사진들이 훗날 손님이 주공을 찾아오는 까닭이 되옵니다.
+
+## 보여 주고, 기록하시옵소서
+
+사진은 보여질 때 비로소 완성되옵니다. 매주 한 장이라도 세상에 내보이시고, 사람들이 어떤 사진 앞에 오래 머무는지 기록하시옵소서. 그리고 촬영마다 무엇을 배웠는지 한 줄씩 적어 두시옵소서. 촬영 설정과 날씨, 그날의 실수까지 적으시면 더욱 좋사옵니다. 일 년 뒤 그 기록이 주공만의 병법서가 되옵니다.
+
+신이 어복포에 팔진도를 펼칠 수 있었던 것은 돌 하나하나의 자리를 알았기 때문이옵니다. 주공의 사진 한 장 한 장도 그러하옵니다. 서두르지 마시고, 오늘 한 장을 정성껏 찍으시옵소서.
+`
+}
+];
+
+const MAXIMS = [
+  { han: "非淡泊無以明志 非寧靜無以致遠", ko: "담박하지 않으면 뜻을 밝힐 수 없고, 고요하지 않으면 멀리 이를 수 없다.", src: "제갈량, 「계자서(誡子書)」" },
+  { han: "靜以修身 儉以養德", ko: "고요함으로 몸을 닦고, 검소함으로 덕을 기른다.", src: "제갈량, 「계자서(誡子書)」" },
+  { han: "夫學須靜也 才須學也", ko: "배움은 모름지기 고요해야 하고, 재주는 모름지기 배워야 한다.", src: "제갈량, 「계자서(誡子書)」" },
+  { han: "淫慢則不能勵精 險躁則不能治性", ko: "게으르면 정진할 수 없고, 조급하면 본성을 다스릴 수 없다.", src: "제갈량, 「계자서(誡子書)」" },
+  { han: "年與時馳 意與日去", ko: "나이는 때와 함께 달려가고, 뜻은 날과 함께 사라진다.", src: "제갈량, 「계자서(誡子書)」" },
+  { han: "志當存高遠", ko: "뜻은 마땅히 높고 멀리 두어야 한다.", src: "제갈량, 「계외생서(誡外甥書)」" },
+  { han: "親賢臣 遠小人", ko: "어진 이를 가까이하고, 소인을 멀리하라.", src: "제갈량, 「출사표(出師表)」" },
+  { han: "不宜妄自菲薄", ko: "스스로를 함부로 낮추어 보지 마시옵소서.", src: "제갈량, 「출사표(出師表)」" },
+  { han: "鞠躬盡瘁 死而後已", ko: "몸을 굽혀 힘을 다하되, 죽은 뒤에야 그친다.", src: "제갈량, 「후출사표(後出師表)」" },
+  { han: "勿以惡小而爲之 勿以善小而不爲", ko: "악이 작다 하여 행하지 말고, 선이 작다 하여 행하지 않음이 없게 하라.", src: "유비의 유조, 제갈량이 받들다" },
+  { han: "攻心爲上 攻城爲下", ko: "마음을 얻는 것이 상책이요, 성을 치는 것은 하책이다.", src: "남정(南征) 때 받든 계책" },
+  { han: "開誠心 布公道", ko: "정성된 마음을 열고, 공정한 도리를 펼쳤다.", src: "진수, 『삼국지』 제갈량전 평" }
+];
+
+const STRATAGEMS = [
+  "클로드 코드에게 오늘 되풀이되는 잡무 하나를 맡겨 보시옵소서.",
+  "큰일을 시키기 전에 Shift+Tab으로 계획 모드를 켜고 계책부터 받아 보시옵소서.",
+  "CLAUDE.md 군령서에 주공의 원칙 한 줄을 더하시옵소서.",
+  "모르는 명령어 하나를 클로드에게 \"초보자에게 설명하듯\" 물어보시옵소서.",
+  "비슷한 사진 열 장 가운데 한 장만 남기고 나머지는 과감히 내려놓으시옵소서.",
+  "원본 사진의 백업이 두 곳 이상에 있는지 오늘 확인하시옵소서.",
+  "해 뜬 직후나 해 지기 전 한 시간, 빛이 떨어지는 자리를 오 분만 바라보시옵소서.",
+  "거장의 사진 한 장을 십 분 동안 들여다보고, 왜 그 순간이었는지 적어 보시옵소서.",
+  "이번 달 군량 — 수입, 지출, 버틸 수 있는 날수 — 를 한 장에 적어 보시옵소서.",
+  "고마운 손님 한 분께 먼저 안부를 전하시옵소서.",
+  "오늘 할 일 가운데 하나를 거절하거나 남에게 맡기시옵소서.",
+  "삼십 분 걸으시옵소서. 고민은 걸으며 푸는 것이옵니다.",
+  "이번 주에 잘된 일, 잘못된 일, 다음 주에 할 한 가지를 세 줄로 적으시옵소서.",
+  "사진 한 장을 세상에 내보이시옵소서. 완벽하지 않아도 되옵니다."
+];
+</script>
+
+<script>
+(() => {
+  const now = new Date();
+  const dayKey = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
+  const dayIndex = Math.floor(new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime() / 86400000);
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch {} }
+  };
+
+  // --- Date & greeting ---
+  const weekdays = ["일", "월", "화", "수", "목", "금", "토"];
+  document.getElementById("dateLine").textContent =
+    `${now.getFullYear()}년 ${now.getMonth() + 1}월 ${now.getDate()}일 ${weekdays[now.getDay()]}요일`;
+  const h = now.getHours();
+  const greeting =
+    h < 5  ? "밤이 깊었사옵니다. 주공, 오늘은 이만 쉬시옵소서." :
+    h < 9  ? "새벽 기운이 맑사옵니다. 주공, 평안히 주무셨사옵니까." :
+    h < 12 ? "해가 높이 올랐사옵니다. 오늘의 싸움을 시작하실 때이옵니다." :
+    h < 18 ? "한낮이 기울고 있사옵니다. 잠시 숨을 고르시옵소서." :
+             "날이 저물었사옵니다. 오늘 하루도 수고 많으셨사옵니다.";
+  document.getElementById("greeting").textContent = greeting;
+
+  // --- Maxim of the day ---
+  const m = MAXIMS[dayIndex % MAXIMS.length];
+  document.getElementById("maximHan").textContent = m.han;
+  document.getElementById("maximKo").textContent = m.ko;
+  document.getElementById("maximSrc").textContent = "— " + m.src;
+
+  // --- Stratagem of the day ---
+  const todayEl = document.getElementById("today");
+  const check = document.getElementById("todayCheck");
+  document.getElementById("todayText").textContent = STRATAGEMS[dayIndex % STRATAGEMS.length];
+  check.checked = store.get("stratagem-done") === dayKey;
+  todayEl.classList.toggle("done", check.checked);
+  check.addEventListener("change", () => {
+    store.set("stratagem-done", check.checked ? dayKey : "");
+    todayEl.classList.toggle("done", check.checked);
+  });
+
+  // --- Chapters ---
+  const esc = s => s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const plain = body => body.replace(/^## .*$/gm, "").replace(/\s+/g, " ").trim();
+
+  const tabsEl = document.getElementById("tabs");
+  const article = document.getElementById("article");
+
+  CHAPTERS.forEach((c, i) => {
+    const chars = plain(c.body).length;
+    const mins = Math.max(1, Math.round(chars / 500));
+    const b = document.createElement("button");
+    b.className = "tab";
+    b.role = "tab";
+    b.id = "tab-" + c.id;
+    b.innerHTML =
+      `<span class="tab-num">${c.num}</span>` +
+      `<span><div class="tab-title">${esc(c.tab)}</div>` +
+      `<div class="tab-meta">${chars.toLocaleString()}자 · ${mins}분</div></span>`;
+    b.addEventListener("click", () => show(i, true));
+    tabsEl.appendChild(b);
+  });
+
+  function render(c) {
+    let n = 0, first = true;
+    const blocks = c.body.trim().split(/\n\s*\n/).map(block => {
+      block = block.trim();
+      if (block.startsWith("## ")) {
+        n++;
+        return `<h3><span class="n">第${"一二三四五六七八九十"[n - 1] || n}計</span>${esc(block.slice(3))}</h3>`;
+      }
+      const cls = first ? ' class="lead"' : "";
+      first = false;
+      return `<p${cls}>${esc(block)}</p>`;
+    }).join("");
+    return `
+      <div class="chapter-kicker">${esc(c.kicker)}</div>
+      <h2>${esc(c.title)}</h2>
+      <p class="chapter-sub">${esc(c.sub)}</p>
+      ${blocks}
+      <div class="signoff"><span>臣 亮 謹拜 · 신 량 삼가 올리옵니다</span><span class="seal">亮</span></div>`;
+  }
+
+  let current = -1;
+  function show(i, scroll) {
+    if (i === current) return;
+    current = i;
+    const c = CHAPTERS[i];
+    [...tabsEl.children].forEach((t, j) => t.setAttribute("aria-selected", String(j === i)));
+    article.setAttribute("aria-labelledby", "tab-" + c.id);
+    const next = CHAPTERS[(i + 1) % CHAPTERS.length];
+    article.innerHTML = render(c) +
+      `<button class="next-chapter" id="nextBtn"><span>다음 장 · <strong>${esc(next.title)}</strong></span><span>→</span></button>`;
+    document.getElementById("nextBtn").addEventListener("click", () => show((i + 1) % CHAPTERS.length, true));
+    article.classList.remove("enter"); void article.offsetWidth; article.classList.add("enter");
+    store.set("last-chapter", String(i));
+    if (scroll) {
+      const top = document.querySelector(".tabs-shell").offsetTop;
+      if (window.scrollY > top) window.scrollTo({ top, behavior: "smooth" });
+    }
+    updateProgress();
+  }
+
+  // --- Reading progress ---
+  const bar = document.getElementById("progress");
+  function updateProgress() {
+    const max = document.documentElement.scrollHeight - innerHeight;
+    bar.style.transform = `scaleX(${max > 0 ? Math.min(1, scrollY / max) : 0})`;
+  }
+  addEventListener("scroll", updateProgress, { passive: true });
+  addEventListener("resize", updateProgress);
+
+  // Each morning, open on a different chapter so all three get their turn.
+  show(dayIndex % CHAPTERS.length, false);
+
+  // --- Close ---
+  function closeWindow() {
+    window.close();
+    setTimeout(() => {
+      const btn = document.getElementById("closeBtn");
+      btn.textContent = "Ctrl+W (Mac은 ⌘W)로 닫으시옵소서";
+    }, 200);
+  }
+  document.getElementById("closeBtn").addEventListener("click", closeWindow);
+
+  // --- Keyboard ---
+  addEventListener("keydown", e => {
+    if (e.target.matches("input, textarea")) return;
+    if (e.key === "Escape") closeWindow();
+    const k = Number(e.key);
+    if (k >= 1 && k <= CHAPTERS.length) show(k - 1, true);
+  });
+})();
+</script>
+</body>
+</html>
