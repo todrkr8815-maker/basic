@@ -98,3 +98,16 @@ const pdf = out.replace(/\.html$/, '.pdf');
 const r = cp.spawnSync('node', [tmp, out, pdf, d.date], { stdio: 'inherit' });
 fs.unlinkSync(tmp);
 console.log(r.status === 0 ? 'PDF ' + pdf : 'PDF 생성 실패(HTML만 저장됨)');
+
+// 지난 브리핑 목차(ozn/daily/README.md): 날짜 내림차순으로 PDF 링크와 학습 주제를 나열한다.
+try {
+  const dir = path.join(root, 'daily');
+  const rows = fs.readdirSync(dir).filter(f => /^\d{4}-\d{2}-\d{2}\.html$/.test(f)).map(f => f.slice(0, 10)).sort().reverse().map(date => {
+    let title = '', day = '';
+    try { const j = JSON.parse(fs.readFileSync(path.join(dir, 'data', date + '.json'), 'utf8')); day = j.day;
+      const c = j.card || cards.find(x => x.n === j.day); title = c ? c.title : ''; } catch (e) {}
+    const hasPdf = fs.existsSync(path.join(dir, date + '.pdf'));
+    return '| ' + date + ' | ' + day + ' | ' + title + ' | ' + (hasPdf ? '[PDF](' + date + '.pdf)' : '-') + ' |';
+  });
+  fs.writeFileSync(path.join(dir, 'README.md'), '# 지난 브리핑 목차\n\n날짜를 눌러 PDF를 열면 됩니다. 최신 날짜가 위에 있습니다.\n\n| 날짜 | Day | 학습 주제 | 파일 |\n|---|---|---|---|\n' + rows.join('\n') + '\n');
+} catch (e) { console.error('목차 생성 실패', e.message); }
