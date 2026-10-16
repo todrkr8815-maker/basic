@@ -23,9 +23,7 @@ function diagram(kind) {
 }
 const sections = card.sections.map(s =>
   '<h3>' + esc(s.h) + '</h3>' + s.p.map(p => '<p>' + esc(p) + '</p>').join('')).join('');
-const field = '<ul>' + card.field.map(x => '<li>' + esc(x) + '</li>').join('') + '</ul>';
-const quiz = card.quiz.map((q, i) => '<li><b>' + esc(q.q) + '</b><div class="write"></div></li>').join('');
-const answers = card.quiz.map((q, i) => '<li>' + esc(q.a) + '</li>').join('');
+const summary = '<ul>' + (card.summary || []).map(x => '<li>' + esc(x) + '</li>').join('') + '</ul>';
 const ideas = (d.ideas || []).map(i =>
   '<div class="idea"><div class="tag">' + esc(i.tag) + '</div><div><b>' + esc(i.title) + '</b><p>' + esc(i.body) + '</p></div></div>').join('');
 const news = (d.news || []).map(n =>
@@ -54,16 +52,13 @@ const html = '<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>
 '.mk{display:grid;grid-template-columns:1fr 1fr;gap:10px}.mk div{background:var(--tint);padding:6px 10px;border-radius:4px;break-inside:avoid}.mk b{display:block;font-size:10pt}' +
 '.news{padding:6px 0;border-bottom:1px solid var(--line);break-inside:avoid}.news h4{margin:0;font-size:10.5pt}.meta{font-size:8.5pt;color:var(--sub);margin-bottom:2px;word-break:break-all}.impact{background:var(--tint);padding:3px 8px;border-radius:3px}' +
 '.note{font-size:8.5pt;color:var(--sub);margin-top:6px}.memo{margin-top:10px;break-inside:avoid}.memo .write{height:26px}' +
-'.pb{break-before:page}section{margin-bottom:12px}' +
+'.box.sum{background:var(--accent-soft)}.pb{break-before:page}section{margin-bottom:12px}' +
 animals.CSS + '</style></head><body>' +
 '<header><div><div class="brand">오즈네이쳐 육류 데일리</div><h1>' + esc(card.title) + '</h1></div><div class="date">' + esc(dateKo) + '<br>학습 Day ' + esc(d.day) + '</div></header>' +
 '<section><h2>오늘의 학습 카드</h2><p class="intro">' + esc(card.intro) + '</p>' + diagram(card.diagram) + sections +
 '<div class="box"><b class="l">손님에게 이렇게 설명하세요</b>' + esc(card.script) + '</div>' +
-'<div class="box"><b class="l">현장 포인트</b>' + field + '</div>' +
-'<div class="box"><b class="l">콘텐츠로 만들기</b>' + esc(card.content) + '</div>' +
+'<div class="box sum"><b class="l">간단 요약</b>' + summary + '</div>' +
 '<p class="note">확인처: ' + esc(card.sources) + '</p></section>' +
-'<section class="quiz"><h2>오늘의 퀴즈 (소리 내어 말해 보고, 아래에 한 줄로 적기)</h2><ol>' + quiz + '</ol>' +
-'<div class="ans"><b>정답과 해설</b><ol>' + answers + '</ol></div></section>' +
 '<section class="pb"><h2>이런 아이디어 어떠세요?</h2>' + ideas + '</section>' +
 '<section><h2>세계 소·돼지고기 시장 흐름</h2><div class="mk"><div><b>소고기</b>' + esc((d.market || {}).beef) + '</div><div><b>돼지고기</b>' + esc((d.market || {}).pork) + '</div></div></section>' +
 '<section><h2>뉴스 요약</h2>' + news + '<p class="note">' + esc(d.newsNote || '') + '</p></section>' +
