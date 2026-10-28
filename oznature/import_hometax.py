@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
-"""홈택스 전자(세금)계산서 목록을 sales.csv / purchases.csv 로 옮긴다.
+"""홈택스에서 받은 매출·매입 자료를 sales.csv / purchases.csv 로 옮긴다.
 
     python3 oznature/import_hometax.py 받은파일.zip            # Etxiv.txt + Item.txt 가 든 zip
     python3 oznature/import_hometax.py Etxiv.txt --items Item.txt
     python3 oznature/import_hometax.py 목록.xlsx --data oznature/data
+    python3 oznature/import_hometax.py 신용카드매출.xls 판매대행매출.xls --since 2026-07
+
+- 전자(세금)계산서 목록: 건별로 넣는다.
+- 신용카드 매출자료(월별)·판매(결제)대행 매출자료(월별·업체별): 월 합계 한 줄씩 넣는다.
+  금액은 홈택스 그대로(부가세 포함)이며, 면세 위주라 공급가액으로 본다. .xls 는 xlrd 가 필요하다.
 
 - 우리 회사가 공급자면 매출, 공급받는자면 매입으로 넣는다.
 - 세금계산서는 과세, 계산서는 면세로 표시한다.
@@ -37,6 +42,13 @@ def decode(raw):
 
 def grid(name, raw):
     """파일 내용을 행 목록(문자열 리스트)으로."""
+    if name.lower().endswith(".xls"):
+        try:
+            import xlrd
+        except ImportError:
+            raise SystemExit(".xls 파일을 읽으려면 xlrd 가 필요합니다: pip install xlrd")
+        sh = xlrd.open_workbook(file_contents=raw).sheet_by_index(0)
+        return [[cell(v) for v in sh.row_values(r)] for r in range(sh.nrows)]
     if name.lower().endswith((".xlsx", ".xlsm")):
         import openpyxl  # 엑셀일 때만 필요
         wb = openpyxl.load_workbook(io.BytesIO(raw), read_only=True, data_only=True)
@@ -44,6 +56,46 @@ def grid(name, raw):
     text = decode(raw)
     delim = "\t" if "\t" in text else ","
     return [[c.strip() for c in r] for r in csv.reader(io.StringIO(text), delimiter=delim)]
+
+
+def cell(v):
+    if isinstance(v, float) and v.is_integer():
+        return str(int(v))
+    return str(v).strip()
+
+
+PG_CHANNEL = {"네이버": "스마트스토어(네이버)", "쿠팡": "쿠팡", "롯데": "롯데온", "토스": "토스페이먼츠"}
+
+
+def month_end_str(ym):
+    y, m = int(ym[:4]), int(ym[-2:])
+    import calendar
+    return f"{y}-{m:02d}-{calendar.monthrange(y, m)[1]:02d}"
+
+
+def read_card_pg(g, since):
+    """홈택스 신용카드·판매(결제)대행 월별 매출자료 → 월 합계 매출 행."""
+    out = []
+    hdr, body = table_after(g, "승인년월", "자료구분")
+    if hdr:  # 신용카드 매출자료 (월별)
+        for r in body:
+            d = dict(zip(hdr, r))
+            ym = d.get("승인년월", "")
+            if not re.match(r"\d{4}-?\d{2}$", ym) or (since and ym.replace("-", "") < since):
+                continue
+            out.append({"일자": month_end_str(ym), "거래처": "카드 결제 고객", "채널": "카드단말기",
+                        "건수": d.get("건수"), "공급가액": int(num(d.get("매출액계"))),
+                        "증빙": "신용카드", "비고": f"승인 CARD-{ym.replace('-', '')}"})
+        return out
+    hdr, body = table_after(g, "승인년월", "판매(결제)대행업체 상호")
+    if hdr:  # 판매(결제)대행 매출자료 (월·업체별). 머리글이 2줄이라 위치로 읽는다
+        for r in body:
+            if len(r) < 7 or not re.match(r"\d{6}$", r[1]) or (since and r[1] < since):
+                continue
+            ch = next((v for k, v in PG_CHANNEL.items() if k in r[6]), r[6])
+            out.append({"일자": month_end_str(r[1]), "거래처": r[6], "채널": ch, "건수": r[2],
+                        "공급가액": int(num(r[3])), "증빙": "판매대행", "비고": f"승인 PG-{r[1]}-{ch}"})
+    return out
 
 
 def table_after(rows, *must):
@@ -71,26 +123,28 @@ def num(s):
         return 0.0
 
 
-def load_inputs(path, items_path):
+def load_inputs(paths, items_path):
     files = {}
-    if path.suffix.lower() == ".zip":
-        with zipfile.ZipFile(path) as z:
-            for n in z.namelist():
-                files[Path(n).name] = z.read(n)
-    else:
-        files[path.name] = path.read_bytes()
-        if items_path:
-            files[items_path.name] = items_path.read_bytes()
+    for path in paths + ([items_path] if items_path else []):
+        if path.suffix.lower() == ".zip":
+            with zipfile.ZipFile(path) as z:
+                for n in z.namelist():
+                    files[Path(n).name] = z.read(n)
+        else:
+            files[path.name] = path.read_bytes()
     head = items = None
+    summaries = []
     for name, raw in files.items():
         g = grid(name, raw)
         if table_after(g, "승인번호", "품목순번")[0]:
             items = g
         elif table_after(g, "작성일자", "승인번호")[0]:
             head = g
-    if head is None:
-        raise SystemExit("전자(세금)계산서 목록(작성일자·승인번호 머리글)을 찾지 못했습니다.")
-    return head, items
+        elif table_after(g, "승인년월")[0] or any("승인년월" in r for r in g[:5]):
+            summaries.append(g)
+    if head is None and not summaries:
+        raise SystemExit("홈택스 계산서 목록이나 카드·판매대행 매출자료를 찾지 못했습니다.")
+    return head, items, summaries
 
 
 def read_invoices(head, items, biz_no):
@@ -163,19 +217,25 @@ def append(path, cols, rows):
 
 def main():
     ap = argparse.ArgumentParser(description="홈택스 전자(세금)계산서 목록 가져오기")
-    ap.add_argument("file", type=Path)
+    ap.add_argument("files", type=Path, nargs="+")
     ap.add_argument("--items", type=Path, help="품목 파일(Item.txt)을 따로 받은 경우")
     ap.add_argument("--data", type=Path, default=HERE / "data")
     ap.add_argument("--biz", help="우리 회사 사업자등록번호 (파일 첫 줄에 없을 때)")
+    ap.add_argument("--since", help="카드·판매대행 자료 중 이 달(YYYY-MM)부터만 넣기")
     a = ap.parse_args()
 
-    head, items = load_inputs(a.file, a.items)
-    biz = a.biz or own_biz_no(head)
-    if not biz:
-        raise SystemExit("우리 회사 사업자등록번호를 찾지 못했습니다. --biz 로 알려 주세요.")
-    inv = read_invoices(head, items, biz)
+    head, items, summaries = load_inputs(a.files, a.items)
+    inv = []
+    if head:
+        biz = a.biz or own_biz_no(head)
+        if not biz:
+            raise SystemExit("우리 회사 사업자등록번호를 찾지 못했습니다. --biz 로 알려 주세요.")
+        inv = read_invoices(head, items, biz)
 
     sales, purch = [], []
+    since = (a.since or "").replace("-", "")
+    for g in summaries:
+        sales += [{**r, "매출구분": "", "과세구분": "", "부가세": 0} for r in read_card_pg(g, since)]
     for r in inv:
         if r["sale"]:
             # 과세(양념육 등)는 가공 제품. 면세는 상품/제품을 품목 기준정보로 나중에 나눈다.
