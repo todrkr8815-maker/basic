@@ -181,6 +181,9 @@ class Books:
             self.status[key] = None if rows is None else len(rows)
             setattr(self, key, self._prepare(key, rows or []))
         self.product_by_code = {p["품목코드"]: p for p in self.products if p.get("품목코드")}
+        # 같은 회사의 여러 사업장(예: 본사·2공장·고창)을 묶어 볼 때 partners.csv 의 그룹 열을 쓴다
+        self.group_of = {p["거래처명"]: p["그룹"] for p in self.partners if p.get("거래처명") and p.get("그룹")}
+        self.paid_info = any(r.get("입금일") for r in self.sales)
         self.base = defaultdict(dict)
         for r in self.annual:
             if r.get("연도", "").isdigit():
@@ -244,6 +247,7 @@ class Books:
         M["fees"] = sum(r["_수수료"] for r in s)
         M["vat_out"] = sum(r["_부가세"] for r in s)
         M["kg_sold"] = sum(r["_중량kg"] for r in s)
+        M["kg_cover"] = ratio(sum(r["_공급가액"] for r in s if r["_중량kg"]), M["revenue"]) or 0
         M["taxfree_rev"] = sum(r["_공급가액"] for r in s if r.get("과세구분") == "면세")
         M["rev_goods"] = sum(r["_공급가액"] for r in s if r.get("매출구분") == "상품")
         M["rev_prod"] = sum(r["_공급가액"] for r in s if r.get("매출구분") == "제품")
@@ -296,6 +300,9 @@ class Books:
             g_close = sum(r["_금액"] for r in close_inv if r["구분"] == "상품")
             cogs_goods = g_open + M["purch_goods"] - g_close
             M["split"] = {"상품": (M["rev_goods"], cogs_goods), "제품": (M["rev_prod"], M["cogs"] - cogs_goods)}
+
+        # 매입·재고·표준원가 중 하나라도 있어야 이익을 계산할 수 있다
+        M["cost_ok"] = bool(p) or not M["cogs_method"].startswith("매입액")
 
         M["gp"] = M["revenue"] - M["cogs"]
         M["gp_rate"] = ratio(M["gp"], M["revenue"])
@@ -402,6 +409,11 @@ def build(books, ym):
         w(data_quality(books, M, ym))
         return "\n".join(out)
 
+    cost_ok = M["cost_ok"]
+    if not cost_ok:
+        w("> ⚠️ **매출 자료만 들어온 상태입니다.** 매입·재고 자료가 없어 이익은 계산하지 않았습니다.")
+        w("")
+
     # ---- 1. 한눈에 보기
     w("## 1. 한눈에 보기")
     w("")
@@ -412,9 +424,13 @@ def build(books, ym):
          pp(M["gp_rate"], Y["gp_rate"]) if has_yoy else "-"),
         ("영업이익", f"{krw(M['op'])} ({pct(M['op_rate'])})", change(M["op"], P["op"]) if has_prev else "-",
          change(M["op"], Y["op"]) if has_yoy else "-"),
-        ("판매 중량", f"{M['kg_sold']:,.0f}kg", change(M["kg_sold"], P["kg_sold"]) if has_prev else "-",
+        ("판매 중량" + (f" (중량 적힌 매출 {M['kg_cover']:.0f}%만)" if M["kg_cover"] < 95 else ""),
+         f"{M['kg_sold']:,.0f}kg", change(M["kg_sold"], P["kg_sold"]) if has_prev else "-",
          change(M["kg_sold"], Y["kg_sold"]) if has_yoy else "-"),
     ]
+    if not cost_ok:
+        kpi = [kpi[0], ("거래처 수", f"{len({r.get('거래처') for r in M['sales_rows']})}곳", "-", "-")] + \
+              ([kpi[3]] if M["kg_sold"] else [])
     if M["cash_date"]:
         kpi.append(("월말 현금성자산", krw(M["cash"]), change(M["cash"], P["cash"]) if P["cash_date"] else "-", "-"))
     w(table(["지표", "이번 달", "전월 대비", "전년 동월 대비"], kpi))
@@ -435,10 +451,16 @@ def build(books, ym):
         w("- 특이 신호 없음")
     w("")
 
+    rev = M["revenue"]
+    if not cost_ok:
+        w(sales_section(books, M, P, has_prev, ym))
+        w(tax_section(books, ym))
+        w(data_quality(books, M, ym))
+        return "\n".join(out)
+
     # ---- 3. 손익
     w("## 3. 손익 요약")
     w("")
-    rev = M["revenue"]
     pl = [
         ("매출액", won(rev), "100.0%", won(P["revenue"]) if has_prev else "-"),
         ("　(반품·에누리)", won(M["returns"]), pct(ratio(M["returns"], rev)), won(P["returns"]) if has_prev else "-"),
@@ -488,45 +510,7 @@ def build(books, ym):
         w(table(["월", "매출", "매출총이익률", "영업이익", "영업이익률"], trend))
         w("")
 
-    # ---- 4. 매출
-    w("## 4. 매출 분석")
-    w("")
-    s = M["sales_rows"]
-    ch = group(s, lambda r: r.get("채널") or "(미기재)", lambda r: r["_공급가액"])
-    fee_by = dict(group(s, lambda r: r.get("채널") or "(미기재)", lambda r: r["_수수료"]))
-    prev_ch = dict(group(P["sales_rows"], lambda r: r.get("채널") or "(미기재)", lambda r: r["_공급가액"]))
-    w("**채널별**")
-    w("")
-    w(table(["채널", "매출(원)", "비중", "수수료율", "전월 대비"],
-            [(c, won(v), pct(ratio(v, rev)), pct(ratio(fee_by.get(c, 0), v)),
-              change(v, prev_ch.get(c, 0)) if has_prev else "-") for c, v in ch]))
-    w("")
-
-    cust = group(s, lambda r: r.get("거래처") or "(미기재)", lambda r: r["_공급가액"])
-    active = {c for c, v in cust if v > 0}
-    earlier = {r.get("거래처") for r in books.sales if r["_d"] < dt.date(ym[0], ym[1], 1)}
-    recent = {r.get("거래처") for r in books.sales
-              if shift(ym, -3) <= r["_ym"] <= shift(ym, -1)}
-    new, dormant = active - earlier, recent - active
-    top5 = sum(v for _, v in cust[:5])
-    w(f"**거래처** — 활성 {len(active)}곳 · 신규 {len(new)}곳 · 최근 3개월 거래했으나 이번 달 없음 {len(dormant)}곳 · "
-      f"상위 5곳 비중 {pct(ratio(top5, rev))}")
-    if not books.has_month(shift(ym, -3)):
-        w("(과거 자료가 3개월 미만이라 신규·휴면 수치는 참고만 하세요.)")
-    w("")
-    w(table(["순위", "거래처", "매출(원)", "비중"],
-            [(i + 1, c, won(v), pct(ratio(v, rev))) for i, (c, v) in enumerate(cust[:10])],
-            ["---:", "---", "---:", "---:"]))
-    if dormant:
-        w("")
-        w("이번 달 거래가 끊긴 거래처: " + ", ".join(sorted(x for x in dormant if x)[:15])
-          + (" 외" if len(dormant) > 15 else ""))
-    w("")
-
-    w("**품목별 마진** (상위 15개, 원가는 표준원가 또는 최근 3개월 평균 매입단가)")
-    w("")
-    w(table(["품목", "판매 중량", "매출(원)", "판매단가/kg", "원가/kg", "마진율"], item_rows(books, M, ym)))
-    w("")
+    w(sales_section(books, M, P, has_prev, ym))
 
     # ---- 5. 매입
     w("## 5. 매입·원가 분석")
@@ -595,8 +579,10 @@ def build(books, ym):
             w(f"- 매출이 끊겨도 인건비·고정비·원리금을 버틸 수 있는 기간: 약 **{M['cash'] / burn:.1f}개월**")
     else:
         w("- 자금 자료(cash.csv)가 없어 현금 잔액을 표시하지 못했습니다.")
-    ar = books.open_items("sales", ym, "입금일", "입금예정일")
+    ar = books.open_items("sales", ym, "입금일", "입금예정일") if books.paid_info else []
     ap = books.open_items("purchases", ym, "지급일", "지급예정일")
+    if not books.paid_info:
+        w("- 입금 내역(통장 거래내역)이 아직 없어 미수금은 계산하지 않았습니다.")
     ar_total, ap_total = sum(i["amt"] for i in ar), sum(i["amt"] for i in ap)
     w(f"- 월말 미수금 **{krw(ar_total)}** (부가세 포함), 미지급금 {krw(ap_total)}")
     if rev and ar_total:
@@ -627,7 +613,15 @@ def build(books, ym):
             w(f"- {f}")
         w("")
 
-    # ---- 8. 부가세·세무
+    w(tax_section(books, ym))
+
+    w(data_quality(books, M, ym))
+    return "\n".join(out)
+
+
+def tax_section(books, ym):
+    out = []
+    w = out.append
     w("## 8. 부가세·세무 일정")
     w("")
     q0 = (ym[0], (ym[1] - 1) // 3 * 3 + 1)
@@ -657,8 +651,72 @@ def build(books, ym):
         w("\\* 직전 과세기간 공급가액 1억 5천만원 미만 법인은 예정신고 대신 고지서로 납부합니다.")
     w("")
 
-    w(data_quality(books, M, ym))
     return "\n".join(out)
+
+
+def sales_section(books, M, P, has_prev, ym):
+    out = []
+    w = out.append
+    rev = M["revenue"]
+    w("## 4. 매출 분석")
+    w("")
+    s = M["sales_rows"]
+    ch = group(s, lambda r: r.get("채널") or "(미기재)", lambda r: r["_공급가액"])
+    fee_by = dict(group(s, lambda r: r.get("채널") or "(미기재)", lambda r: r["_수수료"]))
+    prev_ch = dict(group(P["sales_rows"], lambda r: r.get("채널") or "(미기재)", lambda r: r["_공급가액"]))
+    w("**채널별**")
+    w("")
+    w(table(["채널", "매출(원)", "비중", "수수료율", "전월 대비"],
+            [(c, won(v), pct(ratio(v, rev)), pct(ratio(fee_by.get(c, 0), v)),
+              change(v, prev_ch.get(c, 0)) if has_prev else "-") for c, v in ch]))
+    w("")
+
+    cust = group(s, lambda r: r.get("거래처") or "(미기재)", lambda r: r["_공급가액"])
+    active = {c for c, v in cust if v > 0}
+    earlier = {r.get("거래처") for r in books.sales if r["_d"] < dt.date(ym[0], ym[1], 1)}
+    recent = {r.get("거래처") for r in books.sales
+              if shift(ym, -3) <= r["_ym"] <= shift(ym, -1)}
+    new, dormant = active - earlier, recent - active
+    top5 = sum(v for _, v in cust[:5])
+    w(f"**거래처** — 활성 {len(active)}곳 · 신규 {len(new)}곳 · 최근 3개월 거래했으나 이번 달 없음 {len(dormant)}곳 · "
+      f"상위 5곳 비중 {pct(ratio(top5, rev))}")
+    if not books.has_month(shift(ym, -3)):
+        w("(과거 자료가 3개월 미만이라 신규·휴면 수치는 참고만 하세요.)")
+    w("")
+    w(table(["순위", "거래처", "매출(원)", "비중"],
+            [(i + 1, c, won(v), pct(ratio(v, rev))) for i, (c, v) in enumerate(cust[:10])],
+            ["---:", "---", "---:", "---:"]))
+    groups = [(g, v, n) for g, v, n in customer_groups(books, s) if n > 1]
+    if groups:
+        w("")
+        w("**같은 회사(그룹)로 묶은 매출**")
+        w("")
+        w(table(["그룹", "사업장 수", "매출(원)", "비중"], [(g, n, won(v), pct(ratio(v, rev))) for g, v, n in groups]))
+    if dormant:
+        w("")
+        w("이번 달 거래가 끊긴 거래처: " + ", ".join(sorted(x for x in dormant if x)[:15])
+          + (" 외" if len(dormant) > 15 else ""))
+    w("")
+
+    if M["kg_sold"]:
+        w("**품목별 마진** (상위 15개, 원가는 표준원가 또는 최근 3개월 평균 매입단가)")
+        w("")
+        w(table(["품목", "판매 중량", "매출(원)", "판매단가/kg", "원가/kg", "마진율"], item_rows(books, M, ym)))
+    else:
+        w("품목별 kg·마진은 판매일보(품목·중량)가 들어오면 계산합니다. 홈택스 계산서에는 품목이 '정육외'처럼 한 줄로만 나옵니다.")
+    w("")
+
+    return "\n".join(out)
+
+
+def customer_groups(books, rows):
+    g = defaultdict(lambda: [0.0, set()])
+    for r in rows:
+        name = r.get("거래처") or "(미기재)"
+        key = books.group_of.get(name, name)
+        g[key][0] += r["_공급가액"]
+        g[key][1].add(name)
+    return sorted(((k, v, len(n)) for k, (v, n) in g.items()), key=lambda x: -x[1])
 
 
 def baseline(books, M, ym):
@@ -682,8 +740,11 @@ def baseline(books, M, ym):
             return None
         return ratio(B[r] - B[c] + (mfg if r == "제품매출" else 0), B[r])
 
+    if not M["cost_ok"]:
+        B = {"매출액": rev}
     gp_b = ratio(B["매출총이익"] + mfg, rev) if "매출총이익" in B else None
-    rows.append(("매출총이익률", pct(M["gp_rate"]), pct(gp_b), pp(M["gp_rate"], gp_b)))
+    if gp_b is not None:
+        rows.append(("매출총이익률", pct(M["gp_rate"]), pct(gp_b), pp(M["gp_rate"], gp_b)))
     if M["split"]:
         for k, (r, c) in M["split"].items():
             b = margin(f"{k}매출", f"{k}매출원가")
@@ -694,7 +755,7 @@ def baseline(books, M, ym):
     if "판매비와관리비" in B:
         sga_b = (B["판매비와관리비"] + mfg - dep) / 12
         rows.append(("운영비(인건비·고정비·경비·수수료)", krw(M["sga"]), f"월평균 {krw(sga_b)}", change(M["sga"], sga_b)))
-    if "매출채권" in B:
+    if "매출채권" in B and books.paid_info:
         ar = sum(i["amt"] for i in books.open_items("sales", ym, "입금일", "입금예정일"))
         cur = f"{ar / (M['revenue'] + M['vat_out']) * days:.0f}일" if M["revenue"] and ar else "-"
         rows.append(("매출채권 회수기간", cur, f"{B['매출채권'] / rev * 365:.0f}일", ""))
@@ -703,7 +764,7 @@ def baseline(books, M, ym):
         rows.append(("재고 보유일수", cur, f"{B['재고자산'] / B['매출원가'] * 365:.0f}일", ""))
     out = [f"**{y}년 결산 대비** (세무대리인 확정 재무제표 기준)", "",
            table(["지표", "이번 달", f"{y}년", "차이"], rows), ""]
-    if mfg or dep:
+    if (mfg or dep) and M["cost_ok"]:
         out += [f"- {y}년 수치는 이 보고서 기준에 맞춰 조정했습니다: 제조경비({krw(mfg)})는 매출원가에서 운영비로 옮기고, "
                 f"감가상각비({krw(dep)})는 뺐습니다.", ""]
     if B.get("가지급금"):
@@ -721,22 +782,24 @@ def signals(books, M, P, has_prev, ym):
             flags.append(f"매출이 전월보다 {abs(c):.1f}% 줄었습니다 ({krw(P['revenue'])} → {krw(rev)}).")
         elif c >= 10:
             goods.append(f"매출이 전월보다 {c:.1f}% 늘었습니다.")
-    if has_prev and M["gp_rate"] is not None and P["gp_rate"] is not None:
+    cost_ok = M["cost_ok"]
+    if cost_ok and P["cost_ok"] and has_prev and M["gp_rate"] is not None and P["gp_rate"] is not None:
         d = M["gp_rate"] - P["gp_rate"]
         if d <= -2:
             flags.append(f"매출총이익률이 {abs(d):.1f}%p 떨어졌습니다 ({pct(P['gp_rate'])} → {pct(M['gp_rate'])}). 매입단가 상승 또는 할인 판매를 확인하세요.")
         elif d >= 2:
             goods.append(f"매출총이익률이 {d:.1f}%p 올랐습니다.")
-    if M["op"] < 0:
+    if cost_ok and M["op"] < 0:
         flags.append(f"영업손실 {krw(-M['op'])}입니다.")
-    cust = group(M["sales_rows"], lambda r: r.get("거래처") or "(미기재)", lambda r: r["_공급가액"])
+    cust = customer_groups(books, M["sales_rows"])
     if cust and rev and cust[0][1] / rev >= 0.2:
-        flags.append(f"거래처 '{cust[0][0]}' 한 곳이 매출의 {cust[0][1] / rev * 100:.0f}%입니다. 이탈 시 타격이 큽니다.")
+        where = f" (사업장 {cust[0][2]}곳 합산)" if cust[0][2] > 1 else ""
+        flags.append(f"거래처 '{cust[0][0]}'{where}이 매출의 {cust[0][1] / rev * 100:.0f}%입니다. 이탈 시 타격이 큽니다.")
     total_p = sum(r["_공급가액"] for r in M["purch_rows"])
     vend = group(M["purch_rows"], lambda r: r.get("거래처") or "(미기재)", lambda r: r["_공급가액"])
     if vend and total_p and vend[0][1] / total_p >= 0.4:
         flags.append(f"매입처 '{vend[0][0]}' 의존도가 {vend[0][1] / total_p * 100:.0f}%입니다. 대체 매입처를 확보해 두세요.")
-    ar = books.open_items("sales", ym, "입금일", "입금예정일")
+    ar = books.open_items("sales", ym, "입금일", "입금예정일") if books.paid_info else []
     over90 = sum(i["amt"] for i in ar if i["age"] > 90)
     if over90:
         n = len({i["who"] for i in ar if i["age"] > 90})
@@ -748,13 +811,13 @@ def signals(books, M, P, has_prev, ym):
         burn = M["fixed_total"] + M["debt_service"]
         if burn and M["cash"] / burn < 3:
             flags.append(f"현금이 고정 지출 {M['cash'] / burn:.1f}개월분뿐입니다.")
-    if M["bep"] and rev < M["bep"]:
+    if cost_ok and M["bep"] and rev < M["bep"]:
         flags.append(f"매출이 손익분기점({krw(M['bep'])})에 못 미칩니다.")
-    neg = [r for r in item_rows(books, M, ym, raw=True) if r[5] is not None and r[5] < 0]
+    neg = [r for r in item_rows(books, M, ym, raw=True) if r[5] is not None and r[5] < 0] if cost_ok else []
     if neg:
         flags.append("원가보다 싸게 판 품목: " + ", ".join(r[0] for r in neg[:5]))
     for item, actual in (("매출", rev), ("영업이익", M["op"])):
-        t = M["budget"].get(item)
+        t = M["budget"].get(item) if cost_ok or item == "매출" else None
         if t and actual < t * 0.9:
             flags.append(f"{item} 목표 달성률 {actual / t * 100:.0f}%.")
     return flags, goods
@@ -771,14 +834,15 @@ def avg_cost(books, code, ym):
 
 
 def item_rows(books, M, ym, raw=False):
-    agg = defaultdict(lambda: [0.0, 0.0])
+    agg = defaultdict(lambda: [0.0, 0.0, 0.0])  # kg, 매출, 중량이 적힌 매출
     for r in M["sales_rows"]:
         a = agg[books.item_key(r)]
         a[0] += r["_중량kg"]
         a[1] += r["_공급가액"]
+        a[2] += r["_공급가액"] if r["_중량kg"] else 0
     out = []
-    for code, (kg, amt) in sorted(agg.items(), key=lambda kv: -kv[1][1])[:15]:
-        price = amt / kg if kg else None
+    for code, (kg, amt, amt_kg) in sorted(agg.items(), key=lambda kv: -kv[1][1])[:15]:
+        price = amt_kg / kg if kg else None
         cost = avg_cost(books, code, ym)
         margin = (price - cost) / price * 100 if price and cost else None
         out.append([books.item_name(code), kg, amt, price, cost, margin])
