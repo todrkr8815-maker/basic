@@ -667,7 +667,7 @@ def sales_section(books, M, P, has_prev, ym):
     w("**채널별**")
     w("")
     w(table(["채널", "매출(원)", "비중", "수수료율", "전월 대비"],
-            [(c, won(v), pct(ratio(v, rev)), pct(ratio(fee_by.get(c, 0), v)),
+            [(c, won(v), pct(ratio(v, rev)), pct(ratio(fee_by[c], v)) if fee_by.get(c) else "-",
               change(v, prev_ch.get(c, 0)) if has_prev else "-") for c, v in ch]))
     w("")
 
