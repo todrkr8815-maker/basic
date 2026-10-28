@@ -437,6 +437,7 @@ def build(books, ym):
     w("")
     w("이익률 변화는 %p(퍼센트포인트), 금액 변화는 %로 표시했습니다.")
     w("")
+    w(target_progress(books, ym))
     w(baseline(books, M, ym))
 
     # ---- 2. 경영자 체크포인트
@@ -717,6 +718,31 @@ def customer_groups(books, rows):
         g[key][0] += r["_공급가액"]
         g[key][1].add(name)
     return sorted(((k, v, len(n)) for k, (v, n) in g.items()), key=lambda x: -x[1])
+
+
+def target_progress(books, ym):
+    """연간 매출 목표(budget.csv 의 그해 '매출' 합계) 대비 누계."""
+    y = ym[0]
+    goal = sum(r["_목표금액"] for r in books.budget if r["_ym"][0] == y and r.get("항목") == "매출")
+    if not goal:
+        return ""
+    months = [(y, m) for m in range(1, ym[1] + 1)]
+    have = [m for m in months if books.has_month(m)]
+    ytd = sum(books.month(m)["revenue"] for m in have)
+    left = 12 - ym[1]
+    out = [f"**{y}년 매출 목표 {krw(goal)}**", ""]
+    if len(have) == len(months):
+        need = (goal - ytd) / left if left else 0
+        out.append(f"- 1~{ym[1]}월 누계 {krw(ytd)} (목표의 {ytd / goal * 100:.0f}%)"
+                   + (f" · 남은 {left}개월 동안 월평균 **{krw(need)}** 필요" if left else ""))
+    else:
+        avg = ytd / len(have) if have else 0
+        out.append(f"- 매출 자료가 {len(have)}개월분({', '.join(f'{m[1]}월' for m in have)})만 있어 누계 대신 추정합니다: "
+                   f"월평균 {krw(avg)} × 12 = 연 {krw(avg * 12)} (목표의 {avg * 12 / goal * 100:.0f}%)")
+        out.append(f"- 목표를 맞추려면 월평균 {krw(goal / 12)}이 필요합니다. "
+                   f"빠진 달({', '.join(f'{m[1]}월' for m in months if m not in have)}) 매출 자료를 주시면 정확한 누계로 바꿉니다.")
+    out.append("")
+    return "\n".join(out)
 
 
 def baseline(books, M, ym):
