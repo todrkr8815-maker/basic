@@ -6,3 +6,4 @@
 - `tools/build-daily.js`: `node ozn/tools/build-daily.js ozn/daily/data/YYYY-MM-DD.json` 으로 A4 HTML+PDF 생성
 - `daily/data/YYYY-MM-DD.json`: 그날의 아이디어·시장 흐름·뉴스 데이터
 - `daily/YYYY-MM-DD.pdf` (그리고 `.html`): 매일 아침 자동 생성되는 A4 출력용 브리핑 (학습 카드, 아이디어, 뉴스 요약)
+- `phone/template.html`, `tools/build-phone.js`: 폰용 페이지 생성 (`node ozn/tools/build-phone.js` → `phone/ozn-today.html`). 브리핑을 만들 때마다 다시 만들어 Artifact로 게시합니다.
