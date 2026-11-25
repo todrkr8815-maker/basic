@@ -1,0 +1,157 @@
+<title>오즈네이쳐 육류 브리핑</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+KR:wght@700&display=swap">
+<style>
+/* 레이아웃: 위에서 아래로 한 칸 세로 스크롤. 날짜 선택 → 탭(브리핑 / 학습 카드). 브리핑은 아이디어 → 시장 흐름 → 뉴스, 카드는 도식 → 본문 → 요약 */
+:root{
+  --bg:#F2F4F3; --card:#FFFFFF; --ink:#1B2321; --sub:#5E6A66; --line:#DDE3E0;
+  --accent:#B0252E; --accent-soft:#F6E3E4; --mid:#9A7A1E; --mid-soft:#F3EBD3; --done:#2E7D5B; --done-soft:#DDEFE6;
+  --f-body:"Noto Sans KR",system-ui,-apple-system,"Apple SD Gothic Neo",sans-serif;
+  --f-head:"Noto Serif KR",Georgia,"Apple SD Gothic Neo",serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#141917; --card:#1E2522; --ink:#ECF0EE; --sub:#9AA8A3; --line:#2E3834;
+  --accent:#F08088; --accent-soft:#3A2224; --mid:#D8B65A; --mid-soft:#3A3522; --done:#6FCB9F; --done-soft:#1F3A2E; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141917; --card:#1E2522; --ink:#ECF0EE; --sub:#9AA8A3; --line:#2E3834;
+  --accent:#F08088; --accent-soft:#3A2224; --mid:#D8B65A; --mid-soft:#3A3522; --done:#6FCB9F; --done-soft:#1F3A2E; color-scheme:dark}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.65;padding-inline:16px;padding-block:16px 40px}
+.wrap{max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+.eyebrow{font-size:13px;letter-spacing:.08em;color:var(--accent);font-weight:700}
+h1{font-family:var(--f-head);font-size:26px;line-height:1.3;margin:0}
+.sub{color:var(--sub);font-size:14px}
+select{min-height:44px;font:inherit;padding:6px 10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);max-width:100%}
+.tabs{display:flex;gap:8px}
+.tabs button{flex:1;min-height:44px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;font:inherit;font-weight:500;cursor:pointer}
+.tabs button[aria-selected="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+button:focus-visible,a:focus-visible,select:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+section{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:12px}
+h2{font-size:17px;margin:0;display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+h2 small{font-weight:400;color:var(--sub);font-size:13px}
+h3{font-size:16px;margin:8px 0 0;padding-top:12px;border-top:1px solid var(--line)}
+p{margin:0}
+.notice{background:var(--accent-soft);border-radius:10px;padding:10px 12px;font-size:14px}
+.idea{display:flex;flex-direction:column;gap:2px;padding:12px;border:1px solid var(--line);border-radius:10px}
+.itag{font-size:12px;font-weight:700;color:var(--accent);letter-spacing:.04em}
+.ititle{font-weight:700}
+.mk{display:grid;grid-template-columns:1fr;gap:10px}
+.mk div{background:var(--bg);padding:10px 12px;border-radius:10px}
+.mk b{display:block;font-size:14px}
+details{border:1px solid var(--line);border-radius:10px;padding:12px}
+summary{cursor:pointer;font-weight:700}
+.meta{font-size:13px;color:var(--sub);margin:4px 0}
+.impact{background:var(--accent-soft);padding:8px 10px;border-radius:8px;margin-top:6px;font-size:14px}
+.ctitle{font-family:var(--f-head);font-size:20px;line-height:1.4}
+p.body,p.intro{line-height:1.85}
+p.intro{color:var(--sub)}
+.box{border-left:4px solid var(--accent);padding:6px 0 6px 12px;display:flex;flex-direction:column;gap:4px}
+.box b{font-size:12px;letter-spacing:.06em;color:var(--accent)}
+.box ul{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px}
+.box.sum{background:var(--accent-soft);border-radius:0 10px 10px 0;padding:10px 12px}
+.src{font-size:13px;color:var(--sub)}
+.dia{display:flex;flex-direction:column;gap:6px}
+a.link{display:flex;align-items:center;justify-content:center;min-height:48px;border-radius:10px;background:var(--accent);color:#fff;font-weight:700;text-decoration:none;text-align:center;padding:8px 16px}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) a.link{color:#1B0B0C}}
+:root[data-theme="dark"] a.link{color:#1B0B0C}
+/*ANIMALS_CSS*/
+[hidden]{display:none!important}
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">오즈네이쳐 · 월·수·금 아침 브리핑</div>
+    <h1 id="hd">브리핑</h1>
+    <div class="sub" id="dt"></div>
+  </header>
+  <label class="sub" for="bsel">브리핑 날짜 선택</label>
+  <select id="bsel"></select>
+  <div class="tabs" role="tablist">
+    <button role="tab" id="t1" aria-selected="true">브리핑</button>
+    <button role="tab" id="t2" aria-selected="false">학습 카드</button>
+  </div>
+  <div id="v1" class="wrap" style="gap:16px"></div>
+  <div id="v2" class="wrap" style="gap:16px" hidden></div>
+  <div class="src">이 화면은 브리핑이 만들어질 때마다 함께 업데이트됩니다. 마지막 업데이트: <span id="upd"></span></div>
+</div>
+
+<script>
+var BR=/*BRIEFINGS*/[];
+var CARDS=/*CARDS*/[];
+var SVG=/*SVG*/{};
+var UPDATED="/*UPDATED*/";
+var BASE="https://github.com/todrkr8815-maker/basic/blob/claude/blissful-fermi-baue0g/ozn/daily/";
+var DOW=["일","월","화","수","목","금","토"];
+function $(i){return document.getElementById(i)}
+function el(tag,cls,txt){var e=document.createElement(tag);if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e}
+function dowOf(d){return DOW[new Date(Date.parse(d+"T00:00:00Z")).getUTCDay()]}
+function cardFor(day){for(var i=0;i<CARDS.length;i++){if(CARDS[i].n===day)return CARDS[i]}return null}
+$("upd").textContent=UPDATED;
+
+var sel=$("bsel");
+BR.slice().reverse().forEach(function(b,i){var o=el("option",null,b.date.replace(/-/g,".")+" ("+dowOf(b.date)+") · Day "+b.day);o.value=b.date;sel.appendChild(o)});
+
+function renderBrief(b){
+  var v=$("v1");v.innerHTML="";
+  $("hd").textContent=b.date.replace(/-/g,".")+" ("+dowOf(b.date)+") 브리핑";
+  var c=cardFor(b.day);
+  $("dt").textContent="학습 Day "+b.day+(c?" · "+c.title:"");
+  var s1=el("section");var h=el("h2","","이런 아이디어 어떠세요?");s1.appendChild(h);
+  (b.ideas||[]).forEach(function(x){var d=el("div","idea");d.appendChild(el("span","itag",x.tag));d.appendChild(el("span","ititle",x.title));d.appendChild(el("span",null,x.body));s1.appendChild(d)});
+  v.appendChild(s1);
+  var s2=el("section");s2.appendChild(el("h2","","세계 소·돼지고기 시장 흐름"));
+  var mk=el("div","mk");
+  var m1=el("div");m1.appendChild(el("b",null,"소고기"));m1.appendChild(el("span",null,(b.market||{}).beef||""));
+  var m2=el("div");m2.appendChild(el("b",null,"돼지고기"));m2.appendChild(el("span",null,(b.market||{}).pork||""));
+  mk.appendChild(m1);mk.appendChild(m2);s2.appendChild(mk);v.appendChild(s2);
+  var s3=el("section");s3.appendChild(el("h2","","뉴스 요약"));
+  (b.news||[]).forEach(function(n,i){
+    var d=el("details");if(i===0)d.open=true;
+    d.appendChild(el("summary",null,n.title));
+    d.appendChild(el("div","meta",n.source+" · "+n.date));
+    d.appendChild(el("p",null,n.summary));
+    if(n.impact){var im=el("p","impact","오즈네이쳐에 의미: "+n.impact);d.appendChild(im)}
+    s3.appendChild(d);
+  });
+  if(b.newsNote)s3.appendChild(el("div","src",b.newsNote));
+  v.appendChild(s3);
+  var s4=el("section");
+  var a=el("a","link","이날의 A4 브리핑 PDF 열기");a.href=BASE+b.date+".pdf";a.target="_blank";a.rel="noopener";
+  s4.appendChild(a);
+  s4.appendChild(el("div","src","PDF는 공유 또는 인쇄 메뉴로 출력할 수 있습니다. 지난 브리핑 목차는 같은 폴더의 README에 있습니다."));
+  v.appendChild(s4);
+  renderCard(b.day);
+}
+
+function diagram(kind){
+  var wrap=el("div","dia");
+  var holder=document.createElement("div");holder.innerHTML=SVG[kind];wrap.appendChild(holder);
+  var lg=el("div","legend");
+  [["g","구이"],["m","불고기·튀김·다목적"],["s","탕·찜·수육·가공"]].forEach(function(x){var i=el("span",null,null);i.appendChild(el("i","sw z-"+x[0]));i.appendChild(document.createTextNode(x[1]));lg.appendChild(i)});
+  wrap.appendChild(lg);
+  wrap.appendChild(el("div","src","부위 위치를 보여 주는 도식입니다. 점선은 몸 안쪽의 부위(안심)입니다. 실제 모양과 비율은 다릅니다."));
+  return wrap;
+}
+function box(card,lab,txt,cls){var d=el("div","box"+(cls?" "+cls:""));d.appendChild(el("b",null,lab));if(Array.isArray(txt)){var u=el("ul");txt.forEach(function(x){u.appendChild(el("li",null,x))});d.appendChild(u)}else d.appendChild(el("span",null,txt));card.appendChild(d)}
+function renderCard(day){
+  var v=$("v2");v.innerHTML="";
+  var c=cardFor(day);if(!c){v.appendChild(el("p","src","이 날짜의 카드가 없습니다."));return}
+  var card=el("section");
+  var h=el("h2",null,"학습 카드");
+  var cs=document.createElement("select");cs.id="csel";cs.setAttribute("aria-label","카드 선택");
+  CARDS.slice().reverse().forEach(function(x){var o=el("option",null,"Day "+x.n);o.value=x.n;if(x.n===day)o.selected=true;cs.appendChild(o)});
+  cs.addEventListener("change",function(){renderCard(+cs.value)});
+  h.appendChild(cs);card.appendChild(h);
+  card.appendChild(el("div","ctitle",c.title));
+  card.appendChild(el("p","intro",c.intro));
+  if(c.diagram&&SVG[c.diagram])card.appendChild(diagram(c.diagram));
+  c.sections.forEach(function(sec){card.appendChild(el("h3",null,sec.h));sec.p.forEach(function(t){card.appendChild(el("p","body",t))})});
+  box(card,"손님에게 이렇게 설명하세요",c.script);
+  box(card,"간단 요약",c.summary||[],"sum");
+  if(c.sources)card.appendChild(el("div","src","확인처: "+c.sources));
+  v.appendChild(card);
+}
+function tab(n){$("v1").hidden=n!==1;$("v2").hidden=n!==2;$("t1").setAttribute("aria-selected",n===1);$("t2").setAttribute("aria-selected",n===2)}
+$("t1").addEventListener("click",function(){tab(1)});
+$("t2").addEventListener("click",function(){tab(2)});
+sel.addEventListener("change",function(){for(var i=0;i<BR.length;i++){if(BR[i].date===sel.value){renderBrief(BR[i]);break}}});
+if(BR.length){renderBrief(BR[BR.length-1])}else{$("hd").textContent="브리핑 준비 중"}
+</script>
