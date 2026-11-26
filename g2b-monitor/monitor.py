@@ -33,10 +33,10 @@ from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
 
 KST = timezone(timedelta(hours=9))
-BASE = "https://apis.data.go.kr/1230000/ad/BidPublicInfoService/"
+BASE = "https://apis.data.go.kr/1230000/ad/BidPublicInfoService02/"  # 활용가이드 v1.3 (2026.11.10)
 OPS = {
-    "물품": "getBidPblancListInfoThngPPSSrch",
-    "용역": "getBidPblancListInfoServcPPSSrch",
+    "물품": "getBidPblancListInfoThngPPSSrch02",
+    "용역": "getBidPblancListInfoServcPPSSrch02",
 }
 CHUNGBUK_RGN_CD = "43"
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -53,7 +53,7 @@ def api_get(op: str, params: dict, key: str, mock: str | None = None) -> ET.Elem
     if mock:
         with open(mock, "rb") as f:
             return _parse(f.read())
-    url = BASE + op + "?" + urllib.parse.urlencode({"ServiceKey": key, **params})
+    url = BASE + op + "?" + urllib.parse.urlencode({"serviceKey": key, **params})
     last = None
     for attempt in range(3):
         try:
@@ -166,7 +166,8 @@ def window(now: datetime, anchor_hour: int, scheduled: bool) -> tuple[datetime, 
         today -= timedelta(days=1)
     back = {0: 3, 6: 2}.get(today.weekday(), 1)  # 월→금, 일→금
     start = today - timedelta(days=back)
-    return start, (today if scheduled else now)
+    end = today if scheduled else now
+    return max(start, end - timedelta(days=7)), end  # API 조회기간 최대 7일 (가이드 v1.3)
 
 
 def collect(cfg: dict, key: str, start: datetime, end: datetime, mock: str | None) -> tuple[list[dict], list[str]]:
