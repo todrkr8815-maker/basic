@@ -1,0 +1,26 @@
+name: 카카오 연결 (처음 한 번)
+
+# 사용법: KAKAO_AUTH_CODE 시크릿에 인가 코드(또는 코드가 든 주소 전체)를 넣고 바로 실행.
+# 인가 코드는 몇 분 안에 만료됩니다.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  connect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: 인가 코드 → 토큰 저장 → 시험 메시지
+        env:
+          KAKAO_REST_KEY: ${{ secrets.KAKAO_REST_KEY }}
+          KAKAO_CLIENT_SECRET: ${{ secrets.KAKAO_CLIENT_SECRET }}
+          KAKAO_AUTH_CODE: ${{ secrets.KAKAO_AUTH_CODE }}
+          GH_PAT: ${{ secrets.GH_PAT }}
+        run: python g2b-monitor/kakao.py connect
