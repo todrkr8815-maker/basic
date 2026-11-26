@@ -3,14 +3,16 @@
 
 조달청 나라장터 입찰공고정보서비스(공공데이터포털 OpenAPI)에서
 물품·용역 공고를 키워드로 모아, 수요기관 위치로 청주 1시간 권역만 남기고
-마감일·추정가격을 요약해 알립니다.
+'새로 올라온 공고'만 알립니다 (지난 실행 이후 게시된 공고, 중복 알림 없음).
 
   python monitor.py                 # 결과를 화면에 출력 (report.md도 저장)
-  python monitor.py --notify        # + GitHub 이슈 / 텔레그램으로 알림
+  python monitor.py --notify        # + 카카오톡 / GitHub 이슈 / 텔레그램으로 알림
+  python monitor.py --scheduled     # 정기 실행: 조회 구간을 '전 영업일 7시 ~ 오늘 7시'로 고정
   python monitor.py --mock FILE.xml # API 대신 저장된 응답으로 시험
 
 필요한 환경변수
   G2B_SERVICE_KEY      공공데이터포털 인증키 (Decoding 키 권장, Encoding 키도 자동 처리)
+  KAKAO_REST_KEY, KAKAO_REFRESH_TOKEN (선택) 카카오톡으로 알림 (kakao.py 참고)
   GITHUB_TOKEN, GITHUB_REPOSITORY   (선택) GitHub 이슈로 알림
   TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID (선택) 텔레그램으로 알림
 """
@@ -150,19 +152,32 @@ def won(v: int) -> str:
     return f"{v:,}원"
 
 
-def collect(cfg: dict, key: str, now: datetime, mock: str | None) -> tuple[list[dict], list[str]]:
-    bgn = (now - timedelta(days=cfg["lookback_days"])).strftime("%Y%m%d%H%M")
-    end = now.strftime("%Y%m%d%H%M")
+def window(now: datetime, anchor_hour: int, scheduled: bool) -> tuple[datetime, datetime]:
+    """'새 공고' 조회 구간. 전 영업일 anchor시 ~ 오늘 anchor시 (월요일은 금요일부터).
+
+    정기 실행은 끝을 오늘 anchor시로 고정해, 실행이 조금 늦어져도 날마다 구간이
+    빈틈·겹침 없이 이어진다. 수동 실행은 지금까지 본다.
+    """
+    today = now.replace(hour=anchor_hour, minute=0, second=0, microsecond=0)
+    if now < today:
+        today -= timedelta(days=1)
+    back = {0: 3, 6: 2}.get(today.weekday(), 1)  # 월→금, 일→금
+    start = today - timedelta(days=back)
+    return start, (today if scheduled else now)
+
+
+def collect(cfg: dict, key: str, start: datetime, end: datetime, mock: str | None) -> tuple[list[dict], list[str]]:
+    bgn, fin = start.strftime("%Y%m%d%H%M"), end.strftime("%Y%m%d%H%M")
     errors: list[str] = []
     found: dict[str, dict] = {}
     streak = 0
 
-    for group, words in cfg["keywords"].items():
+    for words in cfg["keywords"].values():
         for word in words:
             for kind, op in OPS.items():
                 # 전국 조회(기관 위치로 판정) + 충북 참가제한 조회(위치 못 찾는 공고 보완)
                 for rgn in ((None,) if mock else (None, CHUNGBUK_RGN_CD)):
-                    params = {"inqryDiv": "1", "inqryBgnDt": bgn, "inqryEndDt": end, "bidNtceNm": word}
+                    params = {"inqryDiv": "1", "inqryBgnDt": bgn, "inqryEndDt": fin, "bidNtceNm": word}
                     if rgn:
                         params["prtcptLmtRgnCd"] = rgn
                     try:
@@ -179,52 +194,42 @@ def collect(cfg: dict, key: str, now: datetime, mock: str | None) -> tuple[list[
                         no = it.get("bidNtceNo")
                         if not no:
                             continue
-                        it["_kind"], it["_groups"], it["_rgn43"] = kind, {group}, bool(rgn)
+                        it["_kind"], it["_rgn43"] = kind, bool(rgn)
                         prev = found.get(no)
-                        if prev:  # 같은 공고: 키워드 묶음 합치고, 차수 높은(정정) 공고를 남김
-                            groups, r43 = prev["_groups"] | {group}, prev["_rgn43"] or bool(rgn)
+                        if prev:  # 같은 공고: 차수 높은(정정) 공고를 남김
+                            r43 = prev["_rgn43"] or bool(rgn)
                             if (prev.get("bidNtceOrd") or "") >= (it.get("bidNtceOrd") or ""):
-                                prev["_groups"], prev["_rgn43"] = groups, r43
+                                prev["_rgn43"] = r43
                                 continue
-                            it["_groups"], it["_rgn43"] = groups, r43
+                            it["_rgn43"] = r43
                         found[no] = it
     return list(found.values()), errors
 
 
-def classify(items: list[dict], cfg: dict, now: datetime, new_since: datetime) -> dict:
+def classify(items: list[dict], cfg: dict, now: datetime, start: datetime, end: datetime) -> dict:
+    """구간 안에 게시된 공고 중 권역 안(new)과 충북인데 위치 미상(check)만 남긴다."""
     rcfg = cfg["region"]
-    excl = cfg["exclude"]
-    out = {"new": [], "soon": [], "open": [], "check": []}
-    soon_limit = now + timedelta(days=cfg["closing_soon_days"])
-
+    out = {"new": [], "check": []}
     for it in items:
         title = it.get("bidNtceNm") or ""
-        if "취소" in (it.get("ntceKindNm") or ""):
+        if "취소" in (it.get("ntceKindNm") or "") or any(x in title for x in cfg["exclude"]):
             continue
-        if any(x in title for x in excl):
+        posted = parse_dt(it.get("bidNtceDt"))
+        if posted and not (start <= posted < end + timedelta(minutes=1)):
             continue
         close = parse_dt(it.get("bidClseDt"))
         if close and close < now:
             continue
         city = locate(it, rcfg)
-        it["_city"] = city
-        it["_close"] = close
-        it["_posted"] = parse_dt(it.get("bidNtceDt"))
+        it["_city"], it["_close"], it["_posted"] = city, close, posted
         if city is None:
             if it["_rgn43"] or looks_chungbuk(it):
                 out["check"].append(it)
             continue
         minutes = rcfg["drive_minutes"].get(city, 999)
-        if minutes > rcfg["max_minutes"]:
-            continue
-        it["_min"] = minutes
-        if it["_posted"] and it["_posted"] >= new_since:
+        if minutes <= rcfg["max_minutes"]:
+            it["_min"] = minutes
             out["new"].append(it)
-        elif close and close <= soon_limit:
-            out["soon"].append(it)
-        else:
-            out["open"].append(it)
-
     far = datetime.max.replace(tzinfo=KST)
     for k in out:
         out[k].sort(key=lambda x: x.get("_close") or far)
@@ -248,46 +253,42 @@ def link(it: dict) -> str:
     return it.get("bidNtceDtlUrl") or it.get("bidNtceUrl") or "https://www.g2b.go.kr"
 
 
-def entry(it: dict, now: datetime, meat_words: list[str]) -> list[str]:
+def is_meat(it: dict, cfg: dict) -> bool:
+    return any(w in (it.get("bidNtceNm") or "") for w in cfg["keywords"].get("축산", []))
+
+
+def kind_note(it: dict) -> str:
+    k = it.get("ntceKindNm") or ""
+    return f" ({k})" if k and k != "등록공고" else ""
+
+
+def entry(it: dict, now: datetime, cfg: dict) -> list[str]:
     price, label = price_of(it)
-    star = " ★축산" if any(w in (it.get("bidNtceNm") or "") for w in meat_words) else ""
-    where = it.get("_city")
-    where = f"{where}, 약 {it['_min']}분" if where and "_min" in it else (where or "위치 확인 필요")
-    no = it.get("bidNtceNo", "")
-    ordn = it.get("bidNtceOrd", "")
-    kind_note = it.get("ntceKindNm") or ""
-    kind_note = f" · {kind_note}" if kind_note and kind_note != "등록공고" else ""
+    star = " ★축산" if is_meat(it, cfg) else ""
+    where = f"{it['_city']}, 약 {it['_min']}분" if "_min" in it else "위치 확인 필요"
     return [
-        f"[{it['_kind']}] {it.get('bidNtceNm', '')}{star}",
+        f"[{it['_kind']}] {it.get('bidNtceNm', '')}{star}{kind_note(it)}",
         f"  기관: {it.get('dminsttNm') or it.get('ntceInsttNm', '')} ({where})",
-        f"  마감: {fmt_dt(it['_close'])} {dday(it['_close'], now)} · 개찰 {fmt_dt(parse_dt(it.get('opengDt')))}",
-        f"  {label or '추정가격'}: {won(price)} · {it.get('cntrctCnclsMthdNm') or '계약방법 미기재'}{kind_note}",
-        f"  공고번호 {no}-{ordn} · {link(it)}",
+        f"  게시 {fmt_dt(it['_posted'])} · 마감 {fmt_dt(it['_close'])} {dday(it['_close'], now)}",
+        f"  {label or '추정가격'}: {won(price)} · {it.get('cntrctCnclsMthdNm') or '계약방법 미기재'}",
+        f"  {link(it)}",
     ]
 
 
-def render(out: dict, now: datetime, errors: list[str], cfg: dict) -> tuple[str, str]:
-    total = len(out["new"]) + len(out["soon"]) + len(out["open"])
-    title = (f"[나라장터] {now:%Y-%m-%d} 청주권 축산·급식 공고 {total}건"
-             f" (신규 {len(out['new'])} · 마감임박 {len(out['soon'])})")
-    lines = [title, f"기준: {now:%Y-%m-%d %H:%M} KST · 청주 기준 {cfg['region']['max_minutes']}분 권역 · 물품/용역", ""]
-    sections = [
-        ("new", "🆕 신규 공고"),
-        ("soon", f"⏰ 마감 임박 (D-{cfg['closing_soon_days']} 이내)"),
-        ("open", "📋 진행 중"),
-        ("check", "❓ 충북 관련이지만 위치 확인 필요"),
-    ]
-    for k, head in sections:
-        if not out[k]:
-            continue
-        lines.append(f"{head} — {len(out[k])}건")
-        for it in out[k]:
-            lines += entry(it, now, cfg["keywords"].get("축산", []))
-            lines.append("")
-    if total == 0 and not out["check"]:
-        lines.append("조건에 맞는 진행 중 공고가 없습니다.")
+def render(out: dict, now: datetime, start: datetime, end: datetime, errors: list[str], cfg: dict) -> tuple[str, str]:
+    title = f"[나라장터] {now:%m/%d} 청주권 축산·급식 새 공고 {len(out['new'])}건"
+    if out["check"]:
+        title += f" (+위치확인 {len(out['check'])})"
+    lines = [title, f"게시 구간: {fmt_dt(start)} ~ {fmt_dt(end)} · 청주 {cfg['region']['max_minutes']}분 권역", ""]
+    for k, head in (("new", "🆕 새 공고"), ("check", "❓ 충북 공고인데 위치 확인 필요")):
+        if out[k]:
+            lines.append(f"{head} — {len(out[k])}건")
+            for it in out[k]:
+                lines += entry(it, now, cfg) + [""]
+    if not out["new"] and not out["check"]:
+        lines.append("새로 올라온 공고가 없습니다.")
     if errors:
-        lines += ["", "⚠️ 조회 오류:"] + [f"  - {e}" for e in errors[:10]]
+        lines += ["", "⚠️ 조회 오류 (이번엔 공고를 놓쳤을 수 있음):"] + [f"  - {e}" for e in errors[:10]]
     return title, "\n".join(lines).rstrip() + "\n"
 
 
@@ -311,31 +312,29 @@ def notify_github(title: str, body: str) -> tuple[str, str]:
     return "GitHub 이슈: 등록", res.get("html_url", "")
 
 
+KAKAO_MAX = 10
+
+
 def kakao_messages(out: dict, now: datetime, errors: list[str], cfg: dict, issue_url: str) -> list[tuple[str, str]]:
-    """요약 1통 + 신규·마감임박 공고 1건당 1통 (카카오 텍스트 한도 200자)."""
+    """새 공고 1건당 1통 (카카오 텍스트 한도 200자). 조회 오류가 있으면 1통 더."""
     home = issue_url or "https://www.g2b.go.kr"
-    total = len(out["new"]) + len(out["soon"]) + len(out["open"])
-    head = (f"[나라장터 {now:%m/%d}] 청주권 축산·급식\n"
-            f"진행 중 {total}건 · 🆕신규 {len(out['new'])} · ⏰마감임박 {len(out['soon'])}")
-    if out["check"]:
-        head += f" · ❓위치확인 {len(out['check'])}"
-    if errors:
-        head += f"\n⚠️ 조회 오류 {len(errors)}건 — 자세히 보기에서 확인"
-    msgs = [(head, home)]
-    meat = cfg["keywords"].get("축산", [])
-    picks = [("🆕", it) for it in out["new"]] + [("⏰", it) for it in out["soon"]]
-    for mark, it in picks[:8]:
+    picks = [("🆕 새 공고", it) for it in out["new"]] + [("❓ 충북 새 공고(위치 확인)", it) for it in out["check"]]
+    msgs = []
+    for i, (mark, it) in enumerate(picks[:KAKAO_MAX], 1):
         price, label = price_of(it)
-        star = "★" if any(w in (it.get("bidNtceNm") or "") for w in meat) else ""
-        title = (it.get("bidNtceNm") or "")[:60]
-        inst = (it.get("dminsttNm") or it.get("ntceInsttNm") or "")[:30]
-        text = (f"{mark}{star} {title}\n"
-                f"{inst} ({it.get('_city')})\n"
+        star = "★" if is_meat(it, cfg) else ""
+        count = f" {i}/{len(picks)}" if len(picks) > 1 else ""
+        where = f" ({it['_city']})" if it.get("_city") else ""
+        text = (f"{mark}{count} {star}\n"
+                f"{(it.get('bidNtceNm') or '')[:60]}{kind_note(it)}\n"
+                f"{(it.get('dminsttNm') or it.get('ntceInsttNm') or '')[:30]}{where}\n"
                 f"마감 {fmt_dt(it['_close'])} {dday(it['_close'], now)}\n"
-                f"{label or '추정가격'} {won(price)} · {it['_kind']}")
+                f"{label or '추정가격'} {won(price)}")
         msgs.append((text, link(it)))
-    if len(picks) > 8:
-        msgs.append((f"외 {len(picks) - 8}건은 자세히 보기에서 확인하세요.", home))
+    if len(picks) > KAKAO_MAX:
+        msgs.append((f"외 {len(picks) - KAKAO_MAX}건 더 있어요. 자세히 보기에서 확인하세요.", home))
+    if errors:
+        msgs.append(("⚠️ 나라장터 조회 중 오류가 나서 오늘 공고를 놓쳤을 수 있어요.\n" + errors[0][:120], home))
     return msgs
 
 
@@ -361,10 +360,10 @@ def notify_telegram(body: str) -> str:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--config", default=os.path.join(HERE, "config.json"))
-    ap.add_argument("--notify", action="store_true", help="GitHub 이슈/텔레그램으로 알림")
+    ap.add_argument("--notify", action="store_true", help="카카오톡/GitHub 이슈/텔레그램으로 알림")
+    ap.add_argument("--scheduled", action="store_true", help="정기 실행 (구간 끝을 오늘 기준 시각으로 고정)")
     ap.add_argument("--mock", help="API 대신 이 XML 응답 파일 사용 (시험용)")
     ap.add_argument("--now", help="기준 시각 YYYYMMDDHHMM (시험용)")
-    ap.add_argument("--new-hours", type=int, help="'신규'로 볼 시간 (기본: 월요일 72, 그 외 24)")
     ap.add_argument("--out", default="report.md", help="보고서 저장 경로")
     args = ap.parse_args()
 
@@ -379,12 +378,11 @@ def main() -> int:
         return 2
 
     now = parse_dt(args.now) if args.now else datetime.now(KST).replace(second=0, microsecond=0)
-    hours = args.new_hours or (72 if now.weekday() == 0 else 24)
-    new_since = now - timedelta(hours=hours)
+    start, end = window(now, cfg.get("anchor_hour", 7), args.scheduled)
 
-    items, errors = collect(cfg, key, now, args.mock)
-    out = classify(items, cfg, now, new_since)
-    title, body = render(out, now, errors, cfg)
+    items, errors = collect(cfg, key, start, end, args.mock)
+    out = classify(items, cfg, now, start, end)
+    title, body = render(out, now, start, end, errors, cfg)
 
     print(body)
     with open(args.out, "w", encoding="utf-8") as f:
@@ -394,8 +392,7 @@ def main() -> int:
         with open(summary, "a", encoding="utf-8") as f:
             f.write(f"## {title}\n\n```text\n{body}```\n")
 
-    hits = len(out["new"]) + len(out["soon"]) + len(out["open"]) + len(out["check"])
-    failed_all = bool(errors) and not items
+    hits = len(out["new"]) + len(out["check"])
     if args.notify and (hits or errors or cfg.get("notify_when_empty")):
         issue_url = ""
         try:
@@ -406,14 +403,18 @@ def main() -> int:
         if os.environ.get("KAKAO_REFRESH_TOKEN"):
             try:
                 import kakao
-                print(kakao.send_many(kakao_messages(out, now, errors, cfg, issue_url)), file=sys.stderr)
+                msgs = kakao_messages(out, now, errors, cfg, issue_url)
+                if not msgs:  # notify_when_empty
+                    msgs = [(f"[나라장터 {now:%m/%d}] 새로 올라온 청주권 축산·급식 공고가 없습니다.",
+                             issue_url or "https://www.g2b.go.kr")]
+                print(kakao.send_many(msgs), file=sys.stderr)
             except Exception as e:
                 print(f"카카오톡 실패: {e}", file=sys.stderr)
         try:
             print(notify_telegram(body), file=sys.stderr)
         except Exception as e:
             print(f"텔레그램 실패: {e}", file=sys.stderr)
-    return 1 if failed_all else 0
+    return 1 if errors and not items else 0
 
 
 if __name__ == "__main__":

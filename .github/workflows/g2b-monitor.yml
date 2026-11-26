@@ -28,7 +28,7 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: python g2b-monitor/monitor.py --notify --out report.md
+        run: python g2b-monitor/monitor.py --notify --out report.md ${{ github.event_name == 'schedule' && '--scheduled' || '' }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:

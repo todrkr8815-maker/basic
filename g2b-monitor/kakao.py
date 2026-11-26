@@ -140,7 +140,7 @@ def connect() -> int:
     if not save_refresh_token(rt):
         print("GH_PAT 시크릿이 없거나 권한이 부족해 KAKAO_REFRESH_TOKEN 을 저장하지 못했습니다.", file=sys.stderr)
         return 1
-    send_text(at, "✅ 나라장터 공고 알림이 카카오톡에 연결됐습니다.\n평일 아침 7시 10분에 청주권 축산·급식 공고를 보내 드려요.",
+    send_text(at, "✅ 나라장터 공고 알림이 카카오톡에 연결됐습니다.\n청주권 축산·급식 새 공고가 올라오면 평일 아침 7시 10분에 알려 드려요.",
               f"https://github.com/{os.environ.get('GITHUB_REPOSITORY', '')}")
     print("연결 완료: 리프레시 토큰 저장, 시험 메시지 전송. 이제 KAKAO_AUTH_CODE 시크릿은 지워도 됩니다.")
     return 0
