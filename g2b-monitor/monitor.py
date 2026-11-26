@@ -293,21 +293,50 @@ def render(out: dict, now: datetime, errors: list[str], cfg: dict) -> tuple[str,
 
 # ── 알림 ────────────────────────────────────────────────────────────
 
-def http_json(url: str, payload: dict, headers: dict) -> None:
+def http_json(url: str, payload: dict, headers: dict) -> dict:
     req = urllib.request.Request(url, data=json.dumps(payload).encode(), method="POST",
                                  headers={"Content-Type": "application/json", **headers})
     with urllib.request.urlopen(req, timeout=30) as r:
-        r.read()
+        return json.loads(r.read() or b"{}")
 
 
-def notify_github(title: str, body: str) -> str:
+def notify_github(title: str, body: str) -> tuple[str, str]:
+    """(결과 한 줄, 이슈 주소)."""
     token, repo = os.environ.get("GITHUB_TOKEN"), os.environ.get("GITHUB_REPOSITORY")
     if not (token and repo):
-        return "GitHub 이슈: 건너뜀 (GITHUB_TOKEN/GITHUB_REPOSITORY 없음)"
-    http_json(f"https://api.github.com/repos/{repo}/issues",
-              {"title": title, "body": "```text\n" + body + "```"},
-              {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"})
-    return "GitHub 이슈: 등록"
+        return "GitHub 이슈: 건너뜀 (GITHUB_TOKEN/GITHUB_REPOSITORY 없음)", ""
+    res = http_json(f"https://api.github.com/repos/{repo}/issues",
+                    {"title": title, "body": "```text\n" + body + "```"},
+                    {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"})
+    return "GitHub 이슈: 등록", res.get("html_url", "")
+
+
+def kakao_messages(out: dict, now: datetime, errors: list[str], cfg: dict, issue_url: str) -> list[tuple[str, str]]:
+    """요약 1통 + 신규·마감임박 공고 1건당 1통 (카카오 텍스트 한도 200자)."""
+    home = issue_url or "https://www.g2b.go.kr"
+    total = len(out["new"]) + len(out["soon"]) + len(out["open"])
+    head = (f"[나라장터 {now:%m/%d}] 청주권 축산·급식\n"
+            f"진행 중 {total}건 · 🆕신규 {len(out['new'])} · ⏰마감임박 {len(out['soon'])}")
+    if out["check"]:
+        head += f" · ❓위치확인 {len(out['check'])}"
+    if errors:
+        head += f"\n⚠️ 조회 오류 {len(errors)}건 — 자세히 보기에서 확인"
+    msgs = [(head, home)]
+    meat = cfg["keywords"].get("축산", [])
+    picks = [("🆕", it) for it in out["new"]] + [("⏰", it) for it in out["soon"]]
+    for mark, it in picks[:8]:
+        price, label = price_of(it)
+        star = "★" if any(w in (it.get("bidNtceNm") or "") for w in meat) else ""
+        title = (it.get("bidNtceNm") or "")[:60]
+        inst = (it.get("dminsttNm") or it.get("ntceInsttNm") or "")[:30]
+        text = (f"{mark}{star} {title}\n"
+                f"{inst} ({it.get('_city')})\n"
+                f"마감 {fmt_dt(it['_close'])} {dday(it['_close'], now)}\n"
+                f"{label or '추정가격'} {won(price)} · {it['_kind']}")
+        msgs.append((text, link(it)))
+    if len(picks) > 8:
+        msgs.append((f"외 {len(picks) - 8}건은 자세히 보기에서 확인하세요.", home))
+    return msgs
 
 
 def notify_telegram(body: str) -> str:
@@ -368,11 +397,22 @@ def main() -> int:
     hits = len(out["new"]) + len(out["soon"]) + len(out["open"]) + len(out["check"])
     failed_all = bool(errors) and not items
     if args.notify and (hits or errors or cfg.get("notify_when_empty")):
-        for fn in (lambda: notify_github(title, body), lambda: notify_telegram(body)):
+        issue_url = ""
+        try:
+            msg, issue_url = notify_github(title, body)
+            print(msg, file=sys.stderr)
+        except Exception as e:  # 알림 하나가 실패해도 다른 채널은 시도
+            print(f"GitHub 이슈 실패: {e}", file=sys.stderr)
+        if os.environ.get("KAKAO_REFRESH_TOKEN"):
             try:
-                print(fn(), file=sys.stderr)
-            except Exception as e:  # 알림 하나가 실패해도 다른 채널은 시도
-                print(f"알림 실패: {e}", file=sys.stderr)
+                import kakao
+                print(kakao.send_many(kakao_messages(out, now, errors, cfg, issue_url)), file=sys.stderr)
+            except Exception as e:
+                print(f"카카오톡 실패: {e}", file=sys.stderr)
+        try:
+            print(notify_telegram(body), file=sys.stderr)
+        except Exception as e:
+            print(f"텔레그램 실패: {e}", file=sys.stderr)
     return 1 if failed_all else 0
 
 

@@ -23,7 +23,7 @@
 | 제외 | 공고명에 공사·설비·기구·냉장고·세척기·차량·검사 등이 있으면 제외 (급식실 공사 같은 것) |
 | 권역 | 수요기관 이름으로 시·군을 판단 → 청주·증평·진천·괴산·음성·보은·옥천·충주 (60분 이내). 영동·제천·단양 제외 |
 | 정리 | 🆕 신규(어제 이후, 월요일은 주말 포함) / ⏰ 마감 D-3 이내 / 📋 진행 중 / ❓ 충북인데 위치를 못 찾은 공고 |
-| 알림 | GitHub 이슈(메일·GitHub 앱 알림 자동) + 텔레그램(선택) |
+| 알림 | 카카오톡 나에게 보내기 + GitHub 이슈 (텔레그램 선택) |
 
 마감 지난 공고, 취소공고는 빠지고, 정정공고는 최신 차수만 남습니다. `★축산`은 공고명에 축산 키워드가 있는 공고입니다.
 
@@ -38,11 +38,37 @@
 저장소 → **Settings → Secrets and variables → Actions → New repository secret**
 - `G2B_SERVICE_KEY` : 위 인증키
 
-### 3. 알림 받기
-- **GitHub 이슈 (기본)**: 공고가 있으면 매일 이슈가 하나 생깁니다. 저장소 상단 **Watch → All Activity** 로 해 두면 메일·GitHub 모바일 앱 알림이 옵니다.
-- **텔레그램 (선택)**: 텔레그램 `@BotFather` 에서 봇을 만들어 토큰을 받고, 봇에게 아무 말이나 보낸 뒤
-  `https://api.telegram.org/bot<토큰>/getUpdates` 에서 `chat.id` 를 확인해 Secrets에 넣습니다.
-  - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`
+### 3. 카카오톡 알림 연결 (나에게 보내기)
+카카오톡 **나와의 채팅**으로 요약 1통 + 신규·마감임박 공고 1건당 1통(최대 8통)이 옵니다. 공고 메시지의 버튼을 누르면 나라장터 공고로 갑니다.
+GitHub 이슈도 함께 생기니, 카카오가 실패해도 이슈에서 볼 수 있습니다.
+
+**가. 카카오 앱 만들기** — [카카오 디벨로퍼스](https://developers.kakao.com) 로그인 → 내 애플리케이션 → 애플리케이션 추가 (이름 예: 나라장터알림)
+1. **앱 키**의 **REST API 키** 복사 → GitHub Secret `KAKAO_REST_KEY`
+2. **카카오 로그인** 사용 설정 **ON**, **Redirect URI** 에 `https://localhost` 등록
+3. **동의항목** → **카카오톡 메시지 전송(talk_message)** 을 "선택 동의"로 설정
+4. **플랫폼 → Web** 사이트 도메인에 `https://github.com`, `https://www.g2b.go.kr` 등록 (메시지 버튼 링크용)
+5. **보안 → Client Secret** 을 켜 두었다면 그 값 → GitHub Secret `KAKAO_CLIENT_SECRET` (꺼져 있으면 생략)
+
+(카카오 화면 메뉴 이름은 조금씩 바뀝니다. 비슷한 이름을 찾으면 됩니다.)
+
+**나. GitHub 토큰 (카카오 연결 자동 갱신용)** — GitHub → Settings → Developer settings → **Fine-grained tokens** → Generate
+- Repository access: 이 저장소만 선택 / Permissions: **Secrets → Read and write**
+- 만든 토큰 → GitHub Secret `GH_PAT`
+- 카카오 연결은 2개월마다 갱신이 필요한데, 이 토큰이 있으면 자동으로 갱신합니다.
+
+**다. 연결하기 (5분 안에 끝내기)**
+1. 브라우저 주소창에 아래 주소를 넣습니다. `REST키` 자리에 REST API 키를 넣으세요.
+   ```
+   https://kauth.kakao.com/oauth/authorize?client_id=REST키&redirect_uri=https://localhost&response_type=code&scope=talk_message
+   ```
+2. 카카오 로그인 → 동의하면 "사이트에 연결할 수 없음" 화면이 뜹니다. **정상입니다.** 주소창의 주소 전체(`https://localhost/?code=...`)를 복사합니다.
+3. GitHub Secret `KAKAO_AUTH_CODE` 에 붙여넣기
+4. **바로** Actions → **카카오 연결 (처음 한 번)** → Run workflow
+5. 카카오톡에 "✅ 연결됐습니다" 메시지가 오면 끝. `KAKAO_AUTH_CODE` 시크릿은 지워도 됩니다.
+
+실패하면 인가 코드가 만료된 것이니 1번부터 다시 하세요 (코드는 한 번만 쓸 수 있습니다).
+
+**텔레그램 (선택)**: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` 시크릿을 넣으면 텔레그램으로도 보냅니다.
 
 ### 4. 켜기
 이 워크플로(`.github/workflows/g2b-monitor.yml`)는 **기본 브랜치(main)에 있어야** 매일 자동 실행됩니다.
@@ -64,6 +90,7 @@ G2B_SERVICE_KEY='인증키' python3 g2b-monitor/monitor.py
 
 ## 알아둘 점
 - **학교 급식 식재료 대부분은 나라장터가 아니라 aT 학교급식전자조달시스템(eaT)** 에서, 군 급식은 **국방전자조달(d2b)** 에서 입찰합니다. 이 알림은 나라장터 공고만 봅니다.
+- 이 저장소는 **공개** 저장소라 알림 이슈도 공개됩니다 (공고 자체가 공개 정보라 문제는 없지만, 원치 않으면 저장소를 비공개로 바꾸세요). 키·토큰은 Secrets에만 있고 로그에 찍히지 않습니다.
 - 위치는 기관 **이름**으로 판단합니다. 이름에 시·군이 없는 기관은 ❓ 칸에 뜨니, 자주 나오면 `institution_aliases` 에 추가하세요.
 - 이동 시간은 청주시청 기준 대략값입니다.
 - 공공데이터포털이 해외 서버(GitHub Actions)의 접속을 막으면 Actions 실행이 "호출 실패"로 끝납니다. 그럴 땐 내 컴퓨터에서 예약 실행으로 돌리면 됩니다.
