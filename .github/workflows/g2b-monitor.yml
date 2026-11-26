@@ -7,7 +7,6 @@ on:
 
 permissions:
   contents: read
-  issues: write
 
 jobs:
   monitor:
@@ -21,13 +20,9 @@ jobs:
       - name: 공고 수집·필터·알림
         env:
           G2B_SERVICE_KEY: ${{ secrets.G2B_SERVICE_KEY }}
-          KAKAO_REST_KEY: ${{ secrets.KAKAO_REST_KEY }}
-          KAKAO_CLIENT_SECRET: ${{ secrets.KAKAO_CLIENT_SECRET }}
-          KAKAO_REFRESH_TOKEN: ${{ secrets.KAKAO_REFRESH_TOKEN }}
-          GH_PAT: ${{ secrets.GH_PAT }}
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          MAIL_TO: ${{ secrets.MAIL_TO }}
         run: python g2b-monitor/monitor.py --notify --out report.md ${{ github.event_name == 'schedule' && '--scheduled' || '' }}
       - uses: actions/upload-artifact@v4
         if: always()
