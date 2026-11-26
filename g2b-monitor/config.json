@@ -9,8 +9,10 @@
   "_keywords_설명": "'축산' 단어가 공고명에 있으면 육류 공고. '식자재'로만 걸린 공고는 include_general_food 가 true일 때 참고 목록으로만 보냅니다.",
   "include_general_food": true,
 
-  "_include_schools_설명": "학교급식은 보류 중 (2026-11-26). 다시 받으려면 true 로 바꾸세요.",
-  "include_schools": false,
+  "_include_schools_설명": "학교·유치원·교육청 공고를 받을지. false 로 하면 전부 뺍니다.",
+  "include_schools": true,
+  "_school_min_price_설명": "학교 공고는 추정가격(없으면 배정예산)이 이 금액(원) 이상일 때만. 금액이 공개 안 된 공고는 놓치지 않게 남깁니다.",
+  "school_min_price": 10000000,
   "school_words": ["학교", "유치원", "교육청", "교육지원청"],
 
   "_exclude_설명": "공고명에 이 단어가 있으면 버립니다 (위탁급식·도시락 업체 선정, 급식실 공사, 급식기구 구매 등 육류 납품이 아닌 공고).",

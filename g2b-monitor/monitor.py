@@ -254,8 +254,12 @@ def classify(items: list[dict], cfg: dict, now: datetime, start: datetime, end: 
         if "취소" in (it.get("ntceKindNm") or "") or any(x in title for x in cfg["exclude"]):
             continue
         inst = (it.get("dminsttNm") or "") + (it.get("ntceInsttNm") or "")
-        if not cfg.get("include_schools", True) and any(w in inst for w in cfg.get("school_words", [])):
-            continue  # 학교급식 보류
+        if any(w in inst for w in cfg.get("school_words", [])):
+            if not cfg.get("include_schools", True):
+                continue
+            price, _ = price_of(it)
+            if 0 < price < cfg.get("school_min_price", 0):
+                continue  # 소규모 학교 공고 제외
         it["_general"] = not is_meat(it, cfg)
         if it["_general"] and not cfg.get("include_general_food", True):
             continue
