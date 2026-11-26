@@ -40,7 +40,7 @@ OPS = {
 }
 RGN_OP = "getBidPblancListInfoPrtcptPsblRgn02"  # 참가가능지역 조회
 RGN_LOOKUP_MAX = 80  # 하루 조회 수 한도 보호
-OTHER_REGIONS = ("서울", "부산", "대구", "인천", "광주", "대전", "울산", "세종", "경기", "강원",
+OTHER_REGIONS = ("서울", "부산", "대구", "인천", "광주", "울산", "경기", "강원",
                  "충청남도", "충남", "전라", "전북", "전남", "경상", "경북", "경남", "제주")
 HERE = os.path.dirname(os.path.abspath(__file__))
 WEEKDAYS = "월화수목금토일"
@@ -112,11 +112,11 @@ def parse_dt(s: str | None) -> datetime | None:
 
 
 def locate(item: dict, rcfg: dict) -> str | None:
-    """수요기관 → 공고기관 순으로 이름을 보고 충북 시·군을 찾는다."""
+    """수요기관 → 공고기관 순으로 이름을 보고 권역 시·군을 찾는다."""
     for field in ("dminsttNm", "ntceInsttNm"):
         name = (item.get(field) or "").replace(" ", "")
-        if not name:
-            continue
+        if not name or (field == "ntceInsttNm" and "조달청" in name):
+            continue  # 지방조달청은 대신 공고만 하는 곳이라 위치 판단에 쓰지 않음
         if name in rcfg["exact_aliases"]:
             return rcfg["exact_aliases"][name]
         for city in rcfg["unique_cities"]:
@@ -132,9 +132,9 @@ def locate(item: dict, rcfg: dict) -> str | None:
     return None
 
 
-def looks_chungbuk(item: dict) -> bool:
+def looks_in_area(item: dict, rcfg: dict) -> bool:
     text = (item.get("dminsttNm") or "") + (item.get("ntceInsttNm") or "")
-    return "충북" in text or "충청북도" in text
+    return any(w in text for w in rcfg["area_words"])
 
 
 def price_of(item: dict) -> tuple[int, str]:
@@ -221,7 +221,7 @@ def resolve_unknown(out: dict, cfg: dict, key: str, mock: str | None, errors: li
     rcfg = cfg["region"]
     for n, it in enumerate(out.pop("unknown")):
         if mock or n >= RGN_LOOKUP_MAX:
-            if looks_chungbuk(it):
+            if looks_in_area(it, rcfg):
                 out["check"].append(it)
             continue
         params = {"inqryDiv": "2", "bidNtceNo": it.get("bidNtceNo", ""), "bidNtceOrd": it.get("bidNtceOrd") or "000"}
@@ -229,15 +229,15 @@ def resolve_unknown(out: dict, cfg: dict, key: str, mock: str | None, errors: li
             rows = fetch_all(RGN_OP, params, key, None)
         except ApiError as e:
             errors.append(f"참가가능지역 {it.get('bidNtceNo')}: {e}")
-            if looks_chungbuk(it):
+            if looks_in_area(it, rcfg):
                 out["check"].append(it)
             continue
         regions = " ".join(r.get("prtcptPsblRgnNm") or "" for r in rows)
-        if "충청북도" not in regions and "충북" not in regions:
-            if not regions.strip() and looks_chungbuk(it):
+        if not any(w in regions for w in ("충청북도", "충북", "세종", "대전")):
+            if not regions.strip() and looks_in_area(it, rcfg):
                 out["check"].append(it)
             continue
-        city = next((c for c in rcfg["unique_cities"] if c in regions), None)
+        city = next((c for c in rcfg["unique_cities"] + ["세종"] if c in regions), None)
         if city:
             place(it, city, out, rcfg)
         else:
@@ -253,6 +253,12 @@ def classify(items: list[dict], cfg: dict, now: datetime, start: datetime, end: 
         title = it.get("bidNtceNm") or ""
         if "취소" in (it.get("ntceKindNm") or "") or any(x in title for x in cfg["exclude"]):
             continue
+        inst = (it.get("dminsttNm") or "") + (it.get("ntceInsttNm") or "")
+        if not cfg.get("include_schools", True) and any(w in inst for w in cfg.get("school_words", [])):
+            continue  # 학교급식 보류
+        it["_general"] = not is_meat(it, cfg)
+        if it["_general"] and not cfg.get("include_general_food", True):
+            continue
         posted = parse_dt(it.get("bidNtceDt"))
         if posted and not (start <= posted < end + timedelta(minutes=1)):
             continue
@@ -263,7 +269,7 @@ def classify(items: list[dict], cfg: dict, now: datetime, start: datetime, end: 
         it["_city"], it["_close"], it["_posted"] = city, close, posted
         if city is None:
             name = (it.get("dminsttNm") or "") + (it.get("ntceInsttNm") or "")
-            if looks_chungbuk(it) or not any(r in name for r in OTHER_REGIONS):
+            if looks_in_area(it, rcfg) or not any(r in name for r in OTHER_REGIONS):
                 out["unknown"].append(it)  # 다른 시·도 이름이 붙은 기관은 바로 제외
             continue
         place(it, city, out, rcfg)
@@ -312,17 +318,32 @@ def entry(it: dict, now: datetime, cfg: dict) -> list[str]:
     ]
 
 
+SECTIONS = (
+    ("new", "🆕 육류 새 공고"),
+    ("check", "❓ 육류 — 권역 공고인데 위치 확인 필요"),
+    ("general", "📦 참고: 식자재 일괄 구매 (육류 포함 여부는 공고에서 확인)"),
+)
+
+
+def split_general(out: dict) -> None:
+    """육류가 아닌 식자재 공고는 참고 목록으로 옮긴다."""
+    out["general"] = [it for k in ("new", "check") for it in out[k] if it.get("_general")]
+    for k in ("new", "check"):
+        out[k] = [it for it in out[k] if not it.get("_general")]
+
+
 def render(out: dict, now: datetime, start: datetime, end: datetime, errors: list[str], cfg: dict) -> tuple[str, str]:
-    title = f"[나라장터] {now:%m/%d} 청주권 축산·급식 새 공고 {len(out['new'])}건"
-    if out["check"]:
-        title += f" (+위치확인 {len(out['check'])})"
-    lines = [title, f"게시 구간: {fmt_dt(start)} ~ {fmt_dt(end)} · 청주 {cfg['region']['max_minutes']}분 권역", ""]
-    for k, head in (("new", "🆕 새 공고"), ("check", "❓ 충북 공고인데 위치 확인 필요")):
+    title = f"[나라장터] {now:%m/%d} 육류 새 공고 {len(out['new'])}건"
+    extra = [f"위치확인 {len(out['check'])}" if out["check"] else "", f"식자재 참고 {len(out['general'])}" if out["general"] else ""]
+    if any(extra):
+        title += " (+" + " · ".join(x for x in extra if x) + ")"
+    lines = [title, f"게시 구간: {fmt_dt(start)} ~ {fmt_dt(end)} · 청주 {cfg['region']['max_minutes']}분 권역 (충북·세종·대전)", ""]
+    for k, head in SECTIONS:
         if out[k]:
             lines.append(f"{head} — {len(out[k])}건")
             for it in out[k]:
                 lines += entry(it, now, cfg) + [""]
-    if not out["new"] and not out["check"]:
+    if not any(out[k] for k, _ in SECTIONS):
         lines.append("새로 올라온 공고가 없습니다.")
     if errors:
         lines += ["", "⚠️ 조회 오류 (이번엔 공고를 놓쳤을 수 있음):"] + [f"  - {e}" for e in errors[:10]]
@@ -338,7 +359,7 @@ def build_email(out: dict, now: datetime, start: datetime, end: datetime,
         return html.escape(str(x or ""))
 
     rows = []
-    for k, tag in (("new", "🆕"), ("check", "❓ 위치 확인")):
+    for k, tag in (("new", "🆕"), ("check", "❓ 위치 확인"), ("general", "📦 참고")):
         for it in out[k]:
             price, label = price_of(it)
             star = ' <b style="color:#c0392b">★축산</b>' if is_meat(it, cfg) else ""
@@ -429,6 +450,7 @@ def main() -> int:
     items, errors = collect(cfg, key, start, end, args.mock)
     out = classify(items, cfg, now, start, end)
     resolve_unknown(out, cfg, key, args.mock, errors)
+    split_general(out)
     far = datetime.max.replace(tzinfo=KST)
     for k in out:
         out[k].sort(key=lambda x: x.get("_close") or far)
@@ -442,7 +464,7 @@ def main() -> int:
         with open(summary, "a", encoding="utf-8") as f:
             f.write(f"## {title}\n\n```text\n{body}```\n")
 
-    hits = len(out["new"]) + len(out["check"])
+    hits = len(out["new"]) + len(out["check"]) + len(out["general"])
     if args.notify and (hits or errors or cfg.get("notify_when_empty")):
         try:
             print(send_email(build_email(out, now, start, end, errors, cfg, title, body)), file=sys.stderr)
