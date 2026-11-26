@@ -6,21 +6,23 @@
 '새로 올라온 공고'만 알립니다 (지난 실행 이후 게시된 공고, 중복 알림 없음).
 
   python monitor.py                 # 결과를 화면에 출력 (report.md도 저장)
-  python monitor.py --notify        # + 카카오톡 / GitHub 이슈 / 텔레그램으로 알림
+  python monitor.py --notify        # + 이메일로 알림
   python monitor.py --scheduled     # 정기 실행: 조회 구간을 '전 영업일 7시 ~ 오늘 7시'로 고정
   python monitor.py --mock FILE.xml # API 대신 저장된 응답으로 시험
 
 필요한 환경변수
   G2B_SERVICE_KEY      공공데이터포털 인증키 (Decoding 키 권장, Encoding 키도 자동 처리)
-  KAKAO_REST_KEY, KAKAO_REFRESH_TOKEN (선택) 카카오톡으로 알림 (kakao.py 참고)
-  GITHUB_TOKEN, GITHUB_REPOSITORY   (선택) GitHub 이슈로 알림
-  TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID (선택) 텔레그램으로 알림
+  SMTP_USER, SMTP_PASSWORD   보내는 메일 계정 (기본: 네이버 SMTP, 애플리케이션 비밀번호 권장)
+  MAIL_TO                    (선택) 받는 주소. 없으면 SMTP_USER 로 보냄
+  SMTP_HOST, SMTP_PORT       (선택) 기본 smtp.naver.com / 465
 """
 from __future__ import annotations
 
 import argparse
+import html
 import json
 import os
+import smtplib
 import sys
 import time
 import urllib.error
@@ -28,6 +30,7 @@ import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta, timezone
+from email.message import EmailMessage
 
 KST = timezone(timedelta(hours=9))
 BASE = "https://apis.data.go.kr/1230000/ad/BidPublicInfoService/"
@@ -292,67 +295,76 @@ def render(out: dict, now: datetime, start: datetime, end: datetime, errors: lis
     return title, "\n".join(lines).rstrip() + "\n"
 
 
-# ── 알림 ────────────────────────────────────────────────────────────
+# ── 이메일 알림 ──────────────────────────────────────────────────────
 
-def http_json(url: str, payload: dict, headers: dict) -> dict:
-    req = urllib.request.Request(url, data=json.dumps(payload).encode(), method="POST",
-                                 headers={"Content-Type": "application/json", **headers})
-    with urllib.request.urlopen(req, timeout=30) as r:
-        return json.loads(r.read() or b"{}")
+def build_email(out: dict, now: datetime, start: datetime, end: datetime,
+                errors: list[str], cfg: dict, title: str, body: str) -> EmailMessage:
+    """새 공고 표가 들어간 HTML 메일 (텍스트 본문도 함께)."""
+    def e(x) -> str:
+        return html.escape(str(x or ""))
 
-
-def notify_github(title: str, body: str) -> tuple[str, str]:
-    """(결과 한 줄, 이슈 주소)."""
-    token, repo = os.environ.get("GITHUB_TOKEN"), os.environ.get("GITHUB_REPOSITORY")
-    if not (token and repo):
-        return "GitHub 이슈: 건너뜀 (GITHUB_TOKEN/GITHUB_REPOSITORY 없음)", ""
-    res = http_json(f"https://api.github.com/repos/{repo}/issues",
-                    {"title": title, "body": "```text\n" + body + "```"},
-                    {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"})
-    return "GitHub 이슈: 등록", res.get("html_url", "")
-
-
-KAKAO_MAX = 10
-
-
-def kakao_messages(out: dict, now: datetime, errors: list[str], cfg: dict, issue_url: str) -> list[tuple[str, str]]:
-    """새 공고 1건당 1통 (카카오 텍스트 한도 200자). 조회 오류가 있으면 1통 더."""
-    home = issue_url or "https://www.g2b.go.kr"
-    picks = [("🆕 새 공고", it) for it in out["new"]] + [("❓ 충북 새 공고(위치 확인)", it) for it in out["check"]]
-    msgs = []
-    for i, (mark, it) in enumerate(picks[:KAKAO_MAX], 1):
-        price, label = price_of(it)
-        star = "★" if is_meat(it, cfg) else ""
-        count = f" {i}/{len(picks)}" if len(picks) > 1 else ""
-        where = f" ({it['_city']})" if it.get("_city") else ""
-        text = (f"{mark}{count} {star}\n"
-                f"{(it.get('bidNtceNm') or '')[:60]}{kind_note(it)}\n"
-                f"{(it.get('dminsttNm') or it.get('ntceInsttNm') or '')[:30]}{where}\n"
-                f"마감 {fmt_dt(it['_close'])} {dday(it['_close'], now)}\n"
-                f"{label or '추정가격'} {won(price)}")
-        msgs.append((text, link(it)))
-    if len(picks) > KAKAO_MAX:
-        msgs.append((f"외 {len(picks) - KAKAO_MAX}건 더 있어요. 자세히 보기에서 확인하세요.", home))
+    rows = []
+    for k, tag in (("new", "🆕"), ("check", "❓ 위치 확인")):
+        for it in out[k]:
+            price, label = price_of(it)
+            star = ' <b style="color:#c0392b">★축산</b>' if is_meat(it, cfg) else ""
+            where = f"{it['_city']} · 약 {it['_min']}분" if "_min" in it else "위치 확인 필요"
+            rows.append(
+                "<tr>"
+                f'<td style="padding:10px;border-bottom:1px solid #eee;vertical-align:top">{tag}</td>'
+                f'<td style="padding:10px;border-bottom:1px solid #eee">'
+                f'<a href="{e(link(it))}" style="font-weight:bold;color:#1a5fb4;text-decoration:none">{e(it.get("bidNtceNm"))}</a>'
+                f'{star}{e(kind_note(it))}<br>'
+                f'<span style="color:#555">{e(it.get("dminsttNm") or it.get("ntceInsttNm"))} ({e(where)}) · {e(it["_kind"])}</span></td>'
+                f'<td style="padding:10px;border-bottom:1px solid #eee;white-space:nowrap">'
+                f'{e(fmt_dt(it["_close"]))}<br><b>{e(dday(it["_close"], now))}</b></td>'
+                f'<td style="padding:10px;border-bottom:1px solid #eee;white-space:nowrap;text-align:right">'
+                f'{e(won(price))}<br><span style="color:#888">{e(label or "추정가격")}</span></td>'
+                "</tr>")
+    table = ""
+    if rows:
+        table = ('<table style="border-collapse:collapse;width:100%;font-size:14px">'
+                 '<tr style="background:#f5f5f5"><th></th><th style="padding:8px;text-align:left">공고 (누르면 나라장터)</th>'
+                 '<th style="padding:8px;text-align:left">마감</th><th style="padding:8px;text-align:right">금액</th></tr>'
+                 + "".join(rows) + "</table>")
+    warn = ""
     if errors:
-        msgs.append(("⚠️ 나라장터 조회 중 오류가 나서 오늘 공고를 놓쳤을 수 있어요.\n" + errors[0][:120], home))
-    return msgs
+        warn = ('<p style="background:#fff3cd;padding:10px">⚠️ 나라장터 조회 중 오류가 나서 이번엔 공고를 놓쳤을 수 있습니다.<br>'
+                + "<br>".join(e(x) for x in errors[:5]) + "</p>")
+    none = "" if rows else "<p>새로 올라온 공고가 없습니다.</p>"
+    page = (f'<div style="font-family:sans-serif;max-width:760px">'
+            f'<h2 style="font-size:18px">{e(title)}</h2>'
+            f'<p style="color:#666">게시 구간 {e(fmt_dt(start))} ~ {e(fmt_dt(end))} · 청주 {cfg["region"]["max_minutes"]}분 권역 · 물품/용역</p>'
+            f'{warn}{table}{none}'
+            f'<p style="color:#999;font-size:12px">키워드·권역 설정: g2b-monitor/config.json</p></div>')
+
+    msg = EmailMessage()
+    msg["Subject"] = title if not errors else title + " ⚠️조회오류"
+    msg.set_content(body)
+    msg.add_alternative(page, subtype="html")
+    return msg
 
 
-def notify_telegram(body: str) -> str:
-    token, chat = os.environ.get("TELEGRAM_BOT_TOKEN"), os.environ.get("TELEGRAM_CHAT_ID")
-    if not (token and chat):
-        return "텔레그램: 건너뜀 (설정 없음)"
-    chunks, cur = [], ""
-    for line in body.splitlines(keepends=True):  # 메시지 한도 4096자
-        if len(cur) + len(line) > 3800:
-            chunks.append(cur)
-            cur = ""
-        cur += line
-    chunks.append(cur)
-    for c in chunks:
-        http_json(f"https://api.telegram.org/bot{token}/sendMessage",
-                  {"chat_id": chat, "text": c, "disable_web_page_preview": True}, {})
-    return f"텔레그램: {len(chunks)}개 메시지 전송"
+def send_email(msg: EmailMessage) -> str:
+    user = os.environ.get("SMTP_USER", "").strip()
+    pw = os.environ.get("SMTP_PASSWORD", "").strip()
+    if not (user and pw):
+        return "이메일: 건너뜀 (SMTP_USER/SMTP_PASSWORD 없음)"
+    to = os.environ.get("MAIL_TO", "").strip() or user
+    host = os.environ.get("SMTP_HOST", "").strip() or "smtp.naver.com"
+    port = int(os.environ.get("SMTP_PORT", "").strip() or 465)
+    msg["From"] = user if "@" in user else f"{user}@naver.com"
+    msg["To"] = to
+    if port == 465:
+        with smtplib.SMTP_SSL(host, port, timeout=30) as s:
+            s.login(user, pw)
+            s.send_message(msg)
+    else:
+        with smtplib.SMTP(host, port, timeout=30) as s:
+            s.starttls()
+            s.login(user, pw)
+            s.send_message(msg)
+    return "이메일: 전송"
 
 
 # ── main ────────────────────────────────────────────────────────────
@@ -360,7 +372,7 @@ def notify_telegram(body: str) -> str:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--config", default=os.path.join(HERE, "config.json"))
-    ap.add_argument("--notify", action="store_true", help="카카오톡/GitHub 이슈/텔레그램으로 알림")
+    ap.add_argument("--notify", action="store_true", help="이메일로 알림")
     ap.add_argument("--scheduled", action="store_true", help="정기 실행 (구간 끝을 오늘 기준 시각으로 고정)")
     ap.add_argument("--mock", help="API 대신 이 XML 응답 파일 사용 (시험용)")
     ap.add_argument("--now", help="기준 시각 YYYYMMDDHHMM (시험용)")
@@ -394,26 +406,11 @@ def main() -> int:
 
     hits = len(out["new"]) + len(out["check"])
     if args.notify and (hits or errors or cfg.get("notify_when_empty")):
-        issue_url = ""
         try:
-            msg, issue_url = notify_github(title, body)
-            print(msg, file=sys.stderr)
-        except Exception as e:  # 알림 하나가 실패해도 다른 채널은 시도
-            print(f"GitHub 이슈 실패: {e}", file=sys.stderr)
-        if os.environ.get("KAKAO_REFRESH_TOKEN"):
-            try:
-                import kakao
-                msgs = kakao_messages(out, now, errors, cfg, issue_url)
-                if not msgs:  # notify_when_empty
-                    msgs = [(f"[나라장터 {now:%m/%d}] 새로 올라온 청주권 축산·급식 공고가 없습니다.",
-                             issue_url or "https://www.g2b.go.kr")]
-                print(kakao.send_many(msgs), file=sys.stderr)
-            except Exception as e:
-                print(f"카카오톡 실패: {e}", file=sys.stderr)
-        try:
-            print(notify_telegram(body), file=sys.stderr)
+            print(send_email(build_email(out, now, start, end, errors, cfg, title, body)), file=sys.stderr)
         except Exception as e:
-            print(f"텔레그램 실패: {e}", file=sys.stderr)
+            print(f"이메일 실패: {e}", file=sys.stderr)
+            return 1
     return 1 if errors and not items else 0
 
 
