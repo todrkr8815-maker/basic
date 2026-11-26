@@ -38,7 +38,10 @@ OPS = {
     "물품": "getBidPblancListInfoThngPPSSrch02",
     "용역": "getBidPblancListInfoServcPPSSrch02",
 }
-CHUNGBUK_RGN_CD = "43"
+RGN_OP = "getBidPblancListInfoPrtcptPsblRgn02"  # 참가가능지역 조회
+RGN_LOOKUP_MAX = 80  # 하루 조회 수 한도 보호
+OTHER_REGIONS = ("서울", "부산", "대구", "인천", "광주", "대전", "울산", "세종", "경기", "강원",
+                 "충청남도", "충남", "전라", "전북", "전남", "경상", "경북", "경남", "제주")
 HERE = os.path.dirname(os.path.abspath(__file__))
 WEEKDAYS = "월화수목금토일"
 
@@ -179,41 +182,73 @@ def collect(cfg: dict, key: str, start: datetime, end: datetime, mock: str | Non
     for words in cfg["keywords"].values():
         for word in words:
             for kind, op in OPS.items():
-                # 전국 조회(기관 위치로 판정) + 충북 참가제한 조회(위치 못 찾는 공고 보완)
-                for rgn in ((None,) if mock else (None, CHUNGBUK_RGN_CD)):
-                    params = {"inqryDiv": "1", "inqryBgnDt": bgn, "inqryEndDt": fin, "bidNtceNm": word}
-                    if rgn:
-                        params["prtcptLmtRgnCd"] = rgn
-                    try:
-                        rows = fetch_all(op, params, key, mock)
-                    except ApiError as e:
-                        errors.append(f"{kind}/{word}{'/충북제한' if rgn else ''}: {e}")
-                        streak += 1
-                        if streak >= 3 or "SERVICE_KEY" in str(e) or "HTTP 4" in str(e):
-                            errors.append("연속 실패로 조회를 중단했습니다.")
-                            return list(found.values()), errors
+                params = {"inqryDiv": "1", "inqryBgnDt": bgn, "inqryEndDt": fin, "bidNtceNm": word}
+                try:
+                    rows = fetch_all(op, params, key, mock)
+                except ApiError as e:
+                    errors.append(f"{kind}/{word}: {e}")
+                    streak += 1
+                    if streak >= 3 or "SERVICE_KEY" in str(e) or "HTTP 4" in str(e):
+                        errors.append("연속 실패로 조회를 중단했습니다.")
+                        return list(found.values()), errors
+                    continue
+                streak = 0
+                for it in rows:
+                    no = it.get("bidNtceNo")
+                    if not no:
                         continue
-                    streak = 0
-                    for it in rows:
-                        no = it.get("bidNtceNo")
-                        if not no:
-                            continue
-                        it["_kind"], it["_rgn43"] = kind, bool(rgn)
-                        prev = found.get(no)
-                        if prev:  # 같은 공고: 차수 높은(정정) 공고를 남김
-                            r43 = prev["_rgn43"] or bool(rgn)
-                            if (prev.get("bidNtceOrd") or "") >= (it.get("bidNtceOrd") or ""):
-                                prev["_rgn43"] = r43
-                                continue
-                            it["_rgn43"] = r43
-                        found[no] = it
+                    it["_kind"] = kind
+                    prev = found.get(no)
+                    if prev and (prev.get("bidNtceOrd") or "") >= (it.get("bidNtceOrd") or ""):
+                        continue  # 같은 공고는 차수 높은(정정) 것만 남김
+                    found[no] = it
     return list(found.values()), errors
 
 
-def classify(items: list[dict], cfg: dict, now: datetime, start: datetime, end: datetime) -> dict:
-    """구간 안에 게시된 공고 중 권역 안(new)과 충북인데 위치 미상(check)만 남긴다."""
+def place(it: dict, city: str, out: dict, rcfg: dict) -> None:
+    minutes = rcfg["drive_minutes"].get(city, 999)
+    if minutes <= rcfg["max_minutes"]:
+        it["_city"], it["_min"] = city, minutes
+        out["new"].append(it)
+
+
+def resolve_unknown(out: dict, cfg: dict, key: str, mock: str | None, errors: list[str]) -> None:
+    """기관명으로 위치를 못 찾은 공고는 나라장터 '참가가능지역'으로 충북 공고인지 확인한다.
+
+    참가가능지역에 충북 시·군이 있으면 권역 판정, '충청북도'만 있으면 위치 확인(check),
+    충북이 없으면 버린다. 지역 제한이 없는 전국 공고는 기관명에 충북이 있을 때만 남긴다.
+    """
     rcfg = cfg["region"]
-    out = {"new": [], "check": []}
+    for n, it in enumerate(out.pop("unknown")):
+        if mock or n >= RGN_LOOKUP_MAX:
+            if looks_chungbuk(it):
+                out["check"].append(it)
+            continue
+        params = {"inqryDiv": "2", "bidNtceNo": it.get("bidNtceNo", ""), "bidNtceOrd": it.get("bidNtceOrd") or "000"}
+        try:
+            rows = fetch_all(RGN_OP, params, key, None)
+        except ApiError as e:
+            errors.append(f"참가가능지역 {it.get('bidNtceNo')}: {e}")
+            if looks_chungbuk(it):
+                out["check"].append(it)
+            continue
+        regions = " ".join(r.get("prtcptPsblRgnNm") or "" for r in rows)
+        if "충청북도" not in regions and "충북" not in regions:
+            if not regions.strip() and looks_chungbuk(it):
+                out["check"].append(it)
+            continue
+        city = next((c for c in rcfg["unique_cities"] if c in regions), None)
+        if city:
+            place(it, city, out, rcfg)
+        else:
+            it["_rgn"] = regions.strip()
+            out["check"].append(it)
+
+
+def classify(items: list[dict], cfg: dict, now: datetime, start: datetime, end: datetime) -> dict:
+    """구간 안에 게시된 공고를 권역 안(new) / 기관명으로 위치 미상(unknown)으로 나눈다."""
+    rcfg = cfg["region"]
+    out = {"new": [], "check": [], "unknown": []}
     for it in items:
         title = it.get("bidNtceNm") or ""
         if "취소" in (it.get("ntceKindNm") or "") or any(x in title for x in cfg["exclude"]):
@@ -227,13 +262,11 @@ def classify(items: list[dict], cfg: dict, now: datetime, start: datetime, end: 
         city = locate(it, rcfg)
         it["_city"], it["_close"], it["_posted"] = city, close, posted
         if city is None:
-            if it["_rgn43"] or looks_chungbuk(it):
-                out["check"].append(it)
+            name = (it.get("dminsttNm") or "") + (it.get("ntceInsttNm") or "")
+            if looks_chungbuk(it) or not any(r in name for r in OTHER_REGIONS):
+                out["unknown"].append(it)  # 다른 시·도 이름이 붙은 기관은 바로 제외
             continue
-        minutes = rcfg["drive_minutes"].get(city, 999)
-        if minutes <= rcfg["max_minutes"]:
-            it["_min"] = minutes
-            out["new"].append(it)
+        place(it, city, out, rcfg)
     far = datetime.max.replace(tzinfo=KST)
     for k in out:
         out[k].sort(key=lambda x: x.get("_close") or far)
@@ -269,7 +302,7 @@ def kind_note(it: dict) -> str:
 def entry(it: dict, now: datetime, cfg: dict) -> list[str]:
     price, label = price_of(it)
     star = " ★축산" if is_meat(it, cfg) else ""
-    where = f"{it['_city']}, 약 {it['_min']}분" if "_min" in it else "위치 확인 필요"
+    where = f"{it['_city']}, 약 {it['_min']}분" if "_min" in it else f"참가가능지역 {it.get('_rgn') or '충북'} · 위치 확인 필요"
     return [
         f"[{it['_kind']}] {it.get('bidNtceNm', '')}{star}{kind_note(it)}",
         f"  기관: {it.get('dminsttNm') or it.get('ntceInsttNm', '')} ({where})",
@@ -395,6 +428,10 @@ def main() -> int:
 
     items, errors = collect(cfg, key, start, end, args.mock)
     out = classify(items, cfg, now, start, end)
+    resolve_unknown(out, cfg, key, args.mock, errors)
+    far = datetime.max.replace(tzinfo=KST)
+    for k in out:
+        out[k].sort(key=lambda x: x.get("_close") or far)
     title, body = render(out, now, start, end, errors, cfg)
 
     print(body)
