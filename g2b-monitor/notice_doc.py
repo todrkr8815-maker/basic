@@ -153,3 +153,9 @@ def small_biz_restriction(text: str) -> str | None:
             continue
         return t[max(0, m.start() - 10):m.end() + 10]
     return None
+
+
+def mentions(text: str, limit: int = 3) -> list[str]:
+    """'소상공인'이 나오는 부근 글자들 (판정이 맞는지 기록으로 확인하는 용도)."""
+    t = _norm(text)
+    return [t[max(0, m.start() - 20):m.end() + 25] for m in re.finditer("소상공인", t)][:limit]
