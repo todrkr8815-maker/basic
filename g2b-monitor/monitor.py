@@ -270,6 +270,8 @@ def eligibility(out: dict, cfg: dict, key: str, mock: str | None, errors: list[s
                           file=sys.stderr)
                     it["_doc_ok"] = bool(texts)
                     hit = next((h for h in map(notice_doc.small_biz_restriction, texts) if h), None)
+                    for ctx in {c for t in texts for c in notice_doc.mentions(t)}:  # 판정 점검용 기록
+                        print(f"    소상공인 언급: …{ctx}… → {'제한으로 판정' if hit else '제한 아님'}", file=sys.stderr)
                 if hit:
                     reason = f"소기업·소상공인 제한 (\"…{hit}…\")"
             if reason:
@@ -327,8 +329,9 @@ def classify(items: list[dict], cfg: dict, now: datetime, start: datetime, end: 
             if 0 < price < cfg.get("school_min_price", 0):
                 continue  # 소규모 학교 공고 제외
         it["_general"] = not is_meat(it, cfg)
-        if it["_general"] and not cfg.get("include_general_food", True):
-            continue
+        if it["_general"] and (not cfg.get("include_general_food", True)
+                               or any(w in title for w in cfg.get("general_exclude", []))):
+            continue  # 고기와 무관한 품목별 공고 (김치류·생선류 등)
         posted = parse_dt(it.get("bidNtceDt"))
         if posted and not (start <= posted < end + timedelta(minutes=1)):
             continue
