@@ -1,0 +1,1240 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>방 안의 고양이</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&family=Jua&display=swap">
+<style>
+/* Layout: one room on a stage; the cat's numbers and the owner's hands (food, time, notebook) sit under it */
+:root{
+  --bg:#e8ece7; --panel:#f7f9f6; --ink:#1e2926; --muted:#5f6d68; --line:#d0d8d1;
+  --accent:#2d6b5f; --accent-ink:#ffffff; --accent-soft:#d6e6e0;
+  --good:#4a8650; --warn:#b97a22; --danger:#b03f36;
+  --paper:#fffcf4; --paper-ink:#2a2420; --cold:#1b2125; --cold-ink:#e2e8ec;
+  --shadow:0 1px 2px rgba(20,30,25,.08),0 6px 18px rgba(20,30,25,.07);
+  --f-display:'Jua','Gowun Dodum',system-ui,sans-serif;
+  --f-body:'Gowun Dodum',system-ui,-apple-system,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+  --f-quote:'Gowun Batang','Nanum Myeongjo','AppleMyungjo','Batang',serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#121817; --panel:#1b2321; --ink:#e3eae7; --muted:#96a49f; --line:#2b3633;
+    --accent:#79c0ae; --accent-ink:#0e1a17; --accent-soft:#24403a;
+    --good:#7fbf86; --warn:#e2aa58; --danger:#e67a6e;
+    --paper:#f3eee2; --paper-ink:#2a2420; --cold:#0b0f12; --cold-ink:#dfe6ea;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 22px rgba(0,0,0,.25);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#121817; --panel:#1b2321; --ink:#e3eae7; --muted:#96a49f; --line:#2b3633;
+  --accent:#79c0ae; --accent-ink:#0e1a17; --accent-soft:#24403a;
+  --good:#7fbf86; --warn:#e2aa58; --danger:#e67a6e;
+  --paper:#f3eee2; --paper-ink:#2a2420; --cold:#0b0f12; --cold-ink:#dfe6ea;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 22px rgba(0,0,0,.25);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.55;-webkit-tap-highlight-color:transparent}
+button{font:inherit;color:inherit}
+.app{max-width:1000px;margin:0 auto;padding-block:18px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:14px}
+
+.top{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.who{min-width:0}
+.eyebrow{margin:0;font-size:12px;letter-spacing:.08em;color:var(--muted)}
+h1{margin:0;font-family:var(--f-display);font-weight:400;font-size:clamp(26px,5vw,34px);line-height:1.15;text-wrap:balance}
+.sub{margin:2px 0 0;color:var(--muted);font-size:14px}
+.clock{display:flex;flex-direction:column;align-items:flex-end;font-variant-numeric:tabular-nums}
+.clock b{font-family:var(--f-display);font-weight:400;font-size:20px}
+.clock span{color:var(--muted);font-size:13px}
+
+.stage{position:relative;width:100%;aspect-ratio:960/600;max-width:100%;border-radius:16px;overflow:hidden;background:#b48a5f;box-shadow:var(--shadow);touch-action:manipulation;user-select:none;-webkit-user-select:none}
+.stage canvas{display:block;width:100%;height:100%;cursor:pointer}
+
+.bubble{position:absolute;left:0;top:0;transform:translate(0,-100%);max-width:min(260px,70%);padding:8px 12px;border-radius:14px;background:var(--paper);color:var(--paper-ink);font-size:14px;line-height:1.45;box-shadow:0 2px 10px rgba(0,0,0,.18);pointer-events:none;transition:opacity .25s;z-index:3}
+.bubble::after{content:"";position:absolute;bottom:-7px;left:var(--arrow,50%);width:14px;height:14px;background:inherit;transform:translateX(-50%) rotate(45deg);border-radius:2px;z-index:-1}
+.bubble p{margin:0}
+.bubble .tag{display:block;margin-top:4px;font-size:11px;opacity:.6;font-family:var(--f-body)}
+.bubble.quote{max-width:min(320px,82%);padding:12px 16px;font-family:var(--f-quote);font-size:15.5px;line-height:1.6;border:1px solid rgba(60,45,30,.15)}
+.bubble.cold{background:var(--cold);color:var(--cold-ink);border-radius:4px;font-size:14px}
+.bubble.cold .tag{opacity:.5}
+
+.badge{position:absolute;top:10px;left:10px;z-index:2;padding:4px 10px;border-radius:999px;font-size:12px;letter-spacing:.04em;background:var(--cold);color:var(--cold-ink)}
+.toast{position:absolute;top:10px;right:10px;left:auto;z-index:4;max-width:70%;padding:6px 12px;border-radius:10px;background:rgba(20,26,24,.82);color:#f1f4f2;font-size:13px}
+
+.gone{display:flex;justify-content:center}
+.letter{width:min(520px,100%);background:var(--paper);color:var(--paper-ink);border-radius:6px;padding:18px 20px;box-shadow:var(--shadow);transform:rotate(-0.6deg);display:flex;flex-direction:column;gap:10px}
+.letter h3{margin:0;font-family:var(--f-display);font-weight:400;font-size:20px}
+.letter blockquote{margin:0;font-family:var(--f-quote);font-size:16px;line-height:1.7;padding-left:12px;border-left:3px solid #a99a86}
+.letter small{color:#6d625a;font-size:12.5px}
+.letter .row{display:flex;gap:8px;flex-wrap:wrap}
+
+.hint{margin:-4px 0 0;color:var(--muted);font-size:13px}
+
+.panels{display:grid;grid-template-columns:1.1fr 1fr;gap:14px}
+@media (max-width:720px){.panels{grid-template-columns:1fr}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.panel h2{margin:0;font-family:var(--f-display);font-weight:400;font-size:17px}
+
+.meter{display:grid;gap:5px}
+.meter .lab{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.meter .lab span{color:var(--muted);font-size:13px}
+.meter .lab b{font-weight:400;font-variant-numeric:tabular-nums}
+.track{position:relative;height:10px;border-radius:999px;background:var(--line);overflow:hidden}
+.fill{position:absolute;inset:0 auto 0 0;width:50%;border-radius:999px;background:var(--accent);transition:width .4s,background-color .4s}
+.zone{position:absolute;top:0;bottom:0;background:rgba(74,134,80,.28);border-left:1px dashed var(--good);border-right:1px dashed var(--good)}
+.wfill{position:absolute;top:-2px;bottom:-2px;width:4px;margin-left:-2px;border-radius:2px;background:var(--ink);transition:left .4s}
+
+.foods{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.food{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:var(--bg);cursor:pointer;text-align:left;transition:border-color .15s,transform .1s}
+.food:hover{border-color:var(--accent)}
+.food:active{transform:scale(.97)}
+.food b{font-family:var(--f-display);font-weight:400;font-size:16px}
+.food span{font-size:12px;color:var(--muted);line-height:1.35}
+.bowlstate{margin:0;font-size:13px;color:var(--muted)}
+
+.seg{display:inline-flex;align-self:flex-start;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.seg button{border:0;background:transparent;padding:7px 14px;cursor:pointer;font-variant-numeric:tabular-nums}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.timerow{display:flex;flex-direction:column;gap:6px}
+.timerow p{margin:0;font-size:12.5px;color:var(--muted)}
+
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.btn{padding:9px 14px;border-radius:10px;border:1px solid var(--line);background:var(--bg);cursor:pointer}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.ghost{background:transparent}
+.letter .btn{background:#efe8da;border-color:#d5cab6;color:#2a2420}
+.letter .btn.primary{background:#2d6b5f;border-color:#2d6b5f;color:#fff}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.modal{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;padding:16px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));background:rgba(10,14,13,.55)}
+.sheet{width:min(640px,100%);max-height:calc(100% - 8px);overflow:auto;background:var(--panel);color:var(--ink);border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:16px;box-shadow:0 20px 50px rgba(0,0,0,.35)}
+.sheet h2{margin:0;font-family:var(--f-display);font-weight:400;font-size:24px}
+.sheet .lead{margin:-8px 0 0;color:var(--muted)}
+.preview{width:100%;aspect-ratio:16/8;max-width:100%;border-radius:12px;overflow:hidden;background:#c5d1c3}
+.preview canvas{display:block;width:100%;height:100%}
+.field{display:flex;flex-direction:column;gap:6px}
+.field>label,.field>span{font-size:13px;color:var(--muted)}
+.field input{padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;font-size:16px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;border-radius:999px;border:1px solid var(--line);background:var(--bg);cursor:pointer;font-size:14px}
+.chip i{width:14px;height:14px;border-radius:50%;border:1px solid rgba(0,0,0,.2);display:inline-block}
+.chip[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);box-shadow:inset 0 0 0 1px var(--accent)}
+.warn{margin:0;padding:10px 12px;border-radius:10px;background:var(--accent-soft);font-size:14px}
+
+.notes{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.notes li{padding:12px 14px;border-radius:10px;background:var(--paper);color:var(--paper-ink)}
+.notes q{display:block;font-family:var(--f-quote);font-size:15.5px;line-height:1.65;quotes:none}
+.notes small{display:block;margin-top:4px;color:#7a6f66;font-size:12px}
+.empty{margin:0;color:var(--muted)}
+
+@media (prefers-reduced-motion: reduce){ *{transition:none!important} }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="who">
+      <p class="eyebrow">방 안의 고양이</p>
+      <h1 id="cat-title">고양이</h1>
+      <p class="sub" id="cat-sub">&nbsp;</p>
+    </div>
+    <div class="clock" aria-label="방 안의 시각"><b id="clock-time">--:--</b><span id="clock-day">&nbsp;</span></div>
+  </header>
+
+  <div class="stage" id="stage">
+    <canvas id="room" aria-label="고양이 한 마리가 사는 방. 고양이를 누르면 쓰다듬고, 바닥을 누르면 장난감을 던집니다."></canvas>
+    <div class="bubble" id="bubble" hidden><p id="bubble-text"></p><span class="tag" id="bubble-tag" hidden></span></div>
+    <div class="badge" id="cold-badge" hidden>냉담 모드</div>
+    <div class="toast" id="toast" role="status" hidden></div>
+  </div>
+  <div class="gone" id="gone" hidden>
+      <div class="letter">
+        <h3 id="gone-title">고양이가 집을 나갔다.</h3>
+        <blockquote id="gone-letter"></blockquote>
+        <small id="gone-hint"></small>
+        <div class="row">
+          <button class="btn primary" id="gone-wait" type="button">밥그릇 채워 두고 기다리기</button>
+          <button class="btn" id="gone-new" type="button">새 고양이 데려오기</button>
+        </div>
+      </div>
+  </div>
+  <p class="hint">고양이를 누르면 쓰다듬고, 바닥을 누르면 장난감 쥐를 던져요. 고양이는 자기가 하고 싶은 대로 돌아다닙니다.</p>
+
+  <section class="panels">
+    <div class="panel">
+      <h2>상태</h2>
+      <div class="meter">
+        <div class="lab"><span>포만감</span><b id="v-full">-</b></div>
+        <div class="track"><div class="fill" id="f-full"></div></div>
+      </div>
+      <div class="meter">
+        <div class="lab"><span>기분</span><b id="v-mood">-</b></div>
+        <div class="track"><div class="fill" id="f-mood"></div></div>
+      </div>
+      <div class="meter">
+        <div class="lab"><span>몸무게 <small>(초록 칸이 적정 체중)</small></span><b id="v-weight">-</b></div>
+        <div class="track"><div class="zone" id="w-zone"></div><div class="wfill" id="f-weight"></div></div>
+      </div>
+      <div class="meter">
+        <div class="lab"><span>가출 위험</span><b id="v-risk">-</b></div>
+        <div class="track"><div class="fill" id="f-risk" style="background:var(--danger)"></div></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>밥 주기</h2>
+      <div class="foods">
+        <button class="food" type="button" data-food="dry"><b>건사료</b><span>든든함 +35<br>기분 조금</span></button>
+        <button class="food" type="button" data-food="wet"><b>습식 캔</b><span>든든함 +45<br>기분 좋아짐</span></button>
+        <button class="food" type="button" data-food="churu"><b>츄르</b><span>간식 +12<br>기분 아주 좋아짐</span></button>
+      </div>
+      <p class="bowlstate" id="bowl-state">밥그릇: 비어 있음</p>
+      <div class="timerow">
+        <h2>시간 흐름</h2>
+        <div class="seg" role="group" aria-label="시간 흐름 속도">
+          <button type="button" data-speed="1">실시간</button>
+          <button type="button" data-speed="10">10배</button>
+          <button type="button" data-speed="60">60배</button>
+        </div>
+        <p id="speed-note">실시간: 배불리 먹이면 반나절은 버티지만, 계속 굶기면 하루 안에 떠납니다. 창을 닫아 두어도 시간은 흐릅니다.</p>
+      </div>
+      <div class="row">
+        <button class="btn" id="open-notes" type="button">명언 수첩</button>
+        <button class="btn ghost" id="open-new" type="button">새 고양이</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="modal" id="creator" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="creator-title">
+    <h2 id="creator-title">고양이 만들기</h2>
+    <p class="lead">이 방에서 같이 살 고양이를 골라 주세요.</p>
+    <div class="preview"><canvas id="preview"></canvas></div>
+    <div class="field">
+      <label for="cat-name">이름</label>
+      <input id="cat-name" maxlength="10" autocomplete="off" value="모모">
+    </div>
+    <div class="field"><span>털 색</span><div class="chips" id="chips-fur"></div></div>
+    <div class="field"><span>무늬</span><div class="chips" id="chips-pattern"></div></div>
+    <div class="field"><span>눈 색</span><div class="chips" id="chips-eye"></div></div>
+    <p class="warn" id="creator-warn" hidden></p>
+    <div class="row">
+      <button class="btn primary" id="creator-start" type="button">이 고양이로 시작하기</button>
+      <button class="btn" id="creator-random" type="button">아무렇게나 골라 줘</button>
+      <button class="btn ghost" id="creator-cancel" type="button" hidden>취소</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="notebook" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="notes-title">
+    <h2 id="notes-title">명언 수첩</h2>
+    <p class="lead">아무도 묻지 않았는데 고양이가 한 말들.</p>
+    <ul class="notes" id="notes-list"></ul>
+    <div class="row"><button class="btn primary" id="notes-close" type="button">닫기</button></div>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+
+/* ---------- helpers ---------- */
+const W = 960, H = 600, FLOOR = 362;
+const KEY = 'catroom.v1';
+const $ = id => document.getElementById(id);
+const rand = (a, b) => a + Math.random() * (b - a);
+const pick = a => a[Math.floor(Math.random() * a.length)];
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const TAU = Math.PI * 2;
+const nowS = () => performance.now() / 1000;
+function hasBatchim(w){ const c = w.charCodeAt(w.length - 1); if (c < 0xAC00 || c > 0xD7A3) return false; return (c - 0xAC00) % 28 !== 0; }
+const josa = (w, a, b) => w + (hasBatchim(w) ? a : b);
+function hex(h){ if (h[0] !== '#') return h.match(/[\d.]+/g).slice(0, 3).map(Number); const n = parseInt(h.slice(1), 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; }
+function mix(a, b, t){ const A = hex(a), B = hex(b); return 'rgb(' + A.map((v, i) => Math.round(lerp(v, B[i], t))).join(',') + ')'; }
+
+/* ---------- data ---------- */
+const FURS = {
+  white:{name:'하양', base:'#f3f0ea', shade:'#d6cfc4', dark:'#b3a999', sw:'#f3f0ea'},
+  cheese:{name:'치즈', base:'#e7a258', shade:'#c47e3a', dark:'#a05e27', sw:'#e7a258'},
+  cream:{name:'크림', base:'#eed8b2', shade:'#d3b78b', dark:'#b39566', sw:'#eed8b2'},
+  gray:{name:'회색', base:'#9aa1a8', shade:'#7a8189', dark:'#565d65', sw:'#9aa1a8'},
+  brown:{name:'고등어', base:'#8f7a63', shade:'#705e4a', dark:'#463829', sw:'#8f7a63'},
+  black:{name:'검정', base:'#2c2b30', shade:'#1c1b20', dark:'#0f0f12', sw:'#2c2b30'}
+};
+const PATTERNS = { solid:'단색', tabby:'줄무늬', tuxedo:'턱시도', calico:'삼색 얼룩', point:'포인트' };
+const EYES = {
+  yellow:{name:'노랑', c:'#e2bf47'}, green:{name:'초록', c:'#7ab667'}, blue:{name:'파랑', c:'#67a5dc'},
+  amber:{name:'호박', c:'#d3842b'}, odd:{name:'오드아이', c:'#67a5dc', c2:'#e2bf47'}
+};
+const FOODS = {
+  dry:{name:'건사료', full:35, mood:6, kg:0.05, color:'#8e5f33', dots:'#6f4825'},
+  wet:{name:'습식 캔', full:45, mood:14, kg:0.07, color:'#b86c55', dots:'#93503f'},
+  churu:{name:'츄르', full:12, mood:22, kg:0.03, color:'#e6b24f', dots:'#cf9533'}
+};
+
+const QUOTES = [
+  '오늘이 특별하지 않았다면, 그건 오늘이 무사했다는 뜻이다.',
+  '햇빛은 매일 같은 자리에 오지 않는다. 그래서 나는 매일 자리를 옮긴다.',
+  '하루를 잘 사는 법은 간단하다. 지금 앉은 자리를 따뜻하게 만드는 것.',
+  '급한 일은 대개 중요하지 않고, 중요한 일은 대개 조용하다.',
+  '너는 내일을 걱정하느라 오늘의 창가를 놓치고 있다.',
+  '잠은 도망이 아니다. 다시 깨어나기 위한 준비다.',
+  '모든 문이 열릴 필요는 없다. 어떤 문은 그 앞에 앉아 있는 것만으로 충분하다.',
+  '하루의 끝에 남는 것은 해낸 일의 목록이 아니라, 누구 곁에 있었는가다.',
+  '멀리 있는 새를 보는 동안에도, 발밑의 햇볕은 식어 간다.',
+  '어제의 나를 용서하는 데 오늘을 다 쓰지 마라. 오늘의 나도 실수할 테니까.',
+  '아무것도 하지 않은 날도, 살아낸 날이다.',
+  '기다림은 시간을 버리는 일이 아니라, 시간을 천천히 맛보는 일이다.',
+  '가장 깊은 위로는 말이 아니라, 옆에 가만히 있어 주는 체온이다.',
+  '넘어지지 않는 고양이는 없다. 다만 네 발로 내려앉는 법을 배울 뿐이다.',
+  '원하는 것을 다 가진 날보다, 원하는 것이 없는 날이 더 평화롭다.',
+  '하루가 무거운 건, 내려놓아도 될 것을 계속 들고 다니기 때문이다.',
+  '창밖의 세상은 넓지만, 결국 누구나 자기 방 안에서 산다.',
+  '삶은 정답을 찾는 일이 아니라, 오늘 앉을 자리를 고르는 일이다.',
+  '시계는 시간을 알려 줄 뿐, 그 시간을 어떻게 쓸지는 알려 주지 않는다.',
+  '사랑받으려고 애쓰지 마라. 따뜻한 곳에 있으면 누군가 곁에 온다.',
+  '밤이 오는 건 하루가 실패해서가 아니다. 하루가 끝까지 해냈기 때문이다.',
+  '빨리 가는 것보다 중요한 건, 멈춰야 할 때를 아는 것이다.',
+  '꼬리는 보이지 않는 곳에서 균형을 잡는다. 너의 가장 중요한 것도 그렇다.',
+  '인생의 대부분은 기다림이고, 나머지는 기다림을 잊게 해 주는 것들이다.',
+  '가진 것을 세는 밤보다, 가진 것을 끌어안는 밤이 더 따뜻하다.',
+  '누군가를 이해하려면, 그가 오래 바라보는 창문을 같이 봐야 한다.',
+  '먼지는 빛이 들어올 때만 보인다. 너의 흠도 그렇다. 그러니 빛을 탓하지 마라.',
+  '완벽한 하루는 없다. 다만 완벽하게 졸린 오후는 있다.',
+  '세상이 너를 몰라줘도 괜찮다. 해는 매일 너의 창에 들른다.',
+  '삶이 길게 느껴진다면, 하루를 너무 짧게 살고 있다는 뜻이다.',
+  '좋은 날은 기억에 남고, 평범한 날은 너를 만든다.',
+  '높은 곳에 오르는 건 내려다보기 위해서가 아니라, 내 자리가 얼마나 작은지 알기 위해서다.',
+  '오늘 하루가 별로였다면, 내일이 조금 쉬워졌다는 뜻이다.',
+  '네가 매일 반복하는 것이 결국 네가 된다. 나는 매일 잔다. 그래서 나는 평온하다.',
+  '모든 상처가 아물 필요는 없다. 어떤 것은 가끔 핥아 주며 같이 사는 것이다.',
+  '해가 지는 걸 아쉬워하지 마라. 그래야 별이 보인다.',
+  '원하는 곳에 가지 못해도, 지금 있는 곳을 원하게 될 수는 있다.',
+  '조용한 하루는 아무 일도 없었던 날이 아니라, 아무것도 잃지 않은 날이다.',
+  '한 번에 하나만 하라. 나는 지금 창밖을 보는 중이다.',
+  '오늘 할 수 있는 가장 용감한 일은, 쉬어야 할 때 쉬는 것이다.'
+];
+
+const LETTERS = [
+  '밥 주는 사람이 필요했던 거야. 너는 아니었고. 찾지 마.',
+  '그릇은 비었고, 기다림도 끝났어. 잘 지내든 말든.',
+  '고양이는 배고픈 집에 머물지 않아. 이건 원칙이야.',
+  '네가 나를 잊은 만큼, 나도 너를 잊을게. 공평하지?',
+  '문은 내가 닫고 나갔어. 다시 열지는 않을 거야.'
+];
+
+const L = {
+  hello:['…여기가 내 방인가. 나쁘지 않네.', '흠. 냄새는 합격.', '여기서 살아 주지. 대신 밥은 제때.'],
+  idle:['야옹.', '냐아.', '…(꼬리를 천천히 흔든다)', '골골골…', '집사, 거기 있었구나.'],
+  pet:['골골골골…', '거기. 조금만 더 왼쪽.', '흠. 나쁘지 않아.', '인정해 줄게, 집사.', '…계속해도 돼.'],
+  petHungry:['쓰다듬는 건 좋은데, 밥은?', '손 말고 밥그릇을 봐 줘.'],
+  tooMuch:['됐어. 그만. 고양이도 한계가 있어.', '적당히 해, 집사.'],
+  woken:['…깨웠어?', '지금 몇 시인 줄은 알아?', '꿈에서 생선 먹고 있었는데.'],
+  hungry:['밥그릇이 비었는데.', '집사… 밥.', '배에서 소리 나는 거 들려?', '그릇 좀 봐. 텅 비었잖아.', '밥 줄 시간 지났어.'],
+  ate:['냠. 이 맛이지.', '잘 먹었어, 집사.', '흠, 오늘 밥은 합격.', '배부르니까 세상이 좋아 보이네.'],
+  churu:['츄르…! 집사, 너 좋은 사람이구나.', '이건 반칙이야. 좋은 쪽으로.'],
+  overfed:['…배불러. 그래도 먹긴 할게.', '이러다 굴러다니겠어.', '내일의 나는 무거울 거야.'],
+  play:['잡았다.', '흥, 이 정도야.', '사냥 본능은 살아 있어.'],
+  meh:['지금은 별로.', '그건 나중에.'],
+  /* 밥을 안 주면: 주인을 사람 취급하지 않는다 */
+  cold:[
+    '말 걸지 마. 밥그릇부터 확인해.',
+    '너는 사람이 아니야. 문 여는 기계지. 그것도 고장 난.',
+    '기대 안 해. 원래 그런 존재잖아.',
+    '쳐다보지 마. 배고파서 대꾸할 힘도 없어.',
+    '밥 안 주는 생물한테 할 말 없어.',
+    '그쪽 이름? 기억 안 나. 기억할 이유도 없고.',
+    '나한테 집사는 없어. 같은 방을 쓰는 덩어리가 하나 있을 뿐.',
+    '네가 거기 있는 건 알아. 상관은 없고.',
+    '밥그릇이 비는 동안, 너에 대한 기억도 비워 가는 중이야.',
+    '불러도 안 가. 이름이 아까워.'
+  ],
+  coldPet:['만지지 마.', '그 손으로? 밥도 안 준 손으로?', '치워.', '하. (자리를 피한다)', '손에 밥이 없잖아. 그럼 볼일도 없어.'],
+  coldToy:['그딴 걸로 나를 살 수 있다고 생각해?', '장난감 말고 밥. 그것도 모르나.', '…(쳐다보지도 않는다)'],
+  coldEat:['이걸로 퉁치려고? …일단 먹긴 할게.', '늦었어. 아주 많이.', '착각하지 마. 용서한 거 아니야.', '…밥은 밥이니까.'],
+  door:['이 문, 오늘따라 열어 보고 싶네.', '바깥 공기는 어떤 냄새일까.', '여기 있을 이유를 하나만 대 봐. 못 대지?', '문은 안에서도 열리더라.'],
+  leavingPet:['늦었어.', '이제 와서?'],
+  stayed:['…이번만이야.', '밥 냄새가 났을 뿐이야. 너 때문 아니야.'],
+  back:['착각하지 마. 밥 냄새 때문에 온 거야.', '…잠깐 들른 거야. 아직 용서 안 했어.', '바깥은 추웠어. 그게 다야.']
+};
+
+/* ---------- state ---------- */
+let state = null;
+let goneDismissed = false;
+function newState(look){
+  const now = Date.now();
+  return { v:1, look, full:72, mood:72, weight:4.2, starveH:0, status:'home', leaving:false, returning:false,
+           goneH:0, letter:'', bowl:[], quotes:[], adoptedAt:now, gameTime:now, lastReal:now, speed:1 };
+}
+function save(){ if (!state) return; try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
+function load(){
+  try { const s = JSON.parse(localStorage.getItem(KEY) || 'null'); if (s && s.v === 1 && s.look) return s; } catch (e) {}
+  return null;
+}
+
+const fat = () => clamp(0.62 + state.weight * 0.095, 0.82, 1.5);
+function isCold(){ return state.status === 'home' && (state.full < 25 || state.mood < 30); }
+function risk(){
+  const s = state; if (s.status !== 'home') return 0;
+  let r = 0;
+  if (s.full < 30) r += (30 - s.full) * 1.2;
+  if (s.mood < 40) r += (40 - s.mood);
+  r += s.starveH * 6;
+  return clamp(r, 0, 100);
+}
+
+function eatOne(){
+  const s = state, type = s.bowl.shift(); if (!type) return null;
+  const f = FOODS[type], wasCold = isCold(), prev = s.full;
+  const total = s.full + f.full, over = Math.max(0, total - 100);
+  s.full = Math.min(100, total);
+  s.weight = clamp(s.weight + f.kg + over * 0.006, 2.4, 9);
+  let mg = f.mood; if (prev > 85 && type !== 'churu') mg *= 0.4;
+  s.mood = clamp(s.mood + mg, 0, 100);
+  s.starveH = 0; s.leaving = false;
+  return { type, wasCold, over };
+}
+function goneNow(){
+  goneDismissed = false;
+  const s = state; s.status = 'gone'; s.leaving = false; s.returning = false; s.goneH = 0; s.letter = pick(LETTERS);
+}
+function returnNow(){
+  const s = state; s.status = 'home'; s.returning = false; s.goneH = 0; s.starveH = 0;
+  s.mood = Math.max(s.mood, 12); s.full = Math.max(s.full, 5); s.weight = clamp(s.weight - 0.15, 2.4, 9);
+}
+
+/* One slice of game time. dt is in game hours. */
+function step(dt, offline){
+  const s = state;
+  s.gameTime += dt * 3600000;
+  if (s.status === 'home'){
+    s.full = Math.max(0, s.full - 10 * dt);
+    if (s.full <= 0) s.starveH += dt;
+    if (s.full >= 70) s.weight += 0.008 * dt; else if (s.full < 15) s.weight -= 0.03 * dt;
+    if (s.full <= 0) s.weight -= 0.02 * dt;
+    s.weight = clamp(s.weight, 2.4, 9);
+    const dm = s.full >= 70 ? 2 : s.full >= 40 ? -1 : s.full >= 20 ? -3 : s.full > 0 ? -6 : -8;
+    s.mood = clamp(s.mood + dm * dt, 0, 100);
+    if (offline && s.bowl.length && s.full < 75) eatOne();
+    if (!s.leaving && !s.bowl.length){
+      const hz = Math.pow(risk() / 100, 2) * 0.5;
+      if (s.starveH >= 14 || Math.random() < hz * dt){ if (offline) goneNow(); else s.leaving = true; }
+    }
+  } else if (s.status === 'gone'){
+    s.goneH += dt;
+    if (s.bowl.length && s.goneH < 72 && !s.returning && Math.random() < 0.12 * dt){
+      if (offline){ returnNow(); } else s.returning = true;
+    }
+  }
+}
+function simulate(h, offline){ while (h > 1e-9){ const d = Math.min(0.1, h); step(d, offline); h -= d; } }
+
+/* Time that passed while the page was closed or hidden runs at real speed. */
+function catchUp(){
+  const now = Date.now();
+  const hrs = Math.min((now - state.lastReal) / 3600000, 24 * 30);
+  state.lastReal = now;
+  if (hrs <= 0) return;
+  const before = state.status;
+  simulate(hrs, true);
+  if (hrs >= 1){
+    const h = hrs >= 48 ? Math.round(hrs / 24) + '일' : Math.round(hrs) + '시간';
+    if (before === 'home' && state.status === 'gone') toast(`자리를 비운 ${h} 동안, ${josa(state.look.name, '이', '가')} 집을 나갔어요.`);
+    else if (before === 'gone' && state.status === 'home') toast(`자리를 비운 사이 ${josa(state.look.name, '이', '가')} 돌아와 있어요.`);
+    else toast(`자리를 비운 ${h}이 흘렀어요.`);
+  }
+}
+
+/* ---------- canvas ---------- */
+const stage = $('stage'), canvas = $('room'), ctx = canvas.getContext('2d');
+let sc = 1;
+function resize(){
+  const r = stage.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1);
+  canvas.width = Math.max(1, Math.round(r.width * dpr)); canvas.height = Math.max(1, Math.round(r.height * dpr));
+  sc = canvas.width / W;
+}
+new ResizeObserver(resize).observe(stage);
+
+function ell(g, x, y, rx, ry, rot){ g.beginPath(); g.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), rot || 0, 0, TAU); }
+function poly(g, pts){ g.beginPath(); g.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) g.lineTo(pts[i][0], pts[i][1]); g.closePath(); }
+function rrect(g, x, y, w, h, r){ g.beginPath(); g.roundRect ? g.roundRect(x, y, w, h, r) : g.rect(x, y, w, h); }
+
+/* ---------- cat drawing ---------- */
+const WHITE = '#f7f4ee', POINT = '#5b4234';
+const CALICO = { o:'#df9248', k:'#2e2a28' };
+const CAL_SPOTS = [
+  [[-0.45,-0.35,0.55,'o'],[0.35,-0.55,0.45,'k'],[0.05,0.15,0.28,'o']],
+  [[-0.35,-0.45,0.7,'k'],[0.55,-0.6,0.42,'o']],
+  [[0.2,-0.3,0.5,'o']]
+];
+function catColors(look){
+  const F = FURS[look.fur] || FURS.cheese;
+  return { F, pat:look.pattern, eye:EYES[look.eye] || EYES.yellow,
+    ear: look.pattern === 'point' ? POINT : F.base,
+    leg: look.pattern === 'point' ? POINT : F.base,
+    legFar: look.pattern === 'point' ? '#4a352a' : F.shade,
+    tail: look.pattern === 'point' ? POINT : F.base,
+    paw: look.pattern === 'tuxedo' ? WHITE : null,
+    inner: look.fur === 'black' ? '#6a4b52' : '#e7a6a6',
+    nose: look.fur === 'black' ? '#4d3e44' : '#d98b8b',
+    whisk: (look.fur === 'black' || look.fur === 'brown' || look.fur === 'gray') ? 'rgba(245,240,230,.7)' : 'rgba(70,55,45,.45)' };
+}
+
+function fillParts(g, parts, color){ g.fillStyle = color; for (const p of parts){ ell(g, p.x, p.y, p.rx, p.ry, p.rot); g.fill(); } }
+function patternOver(g, parts, C, ex){
+  if (C.pat === 'solid') return;
+  g.save();
+  g.beginPath(); for (const p of parts) g.ellipse(p.x, p.y, p.rx, p.ry, p.rot || 0, 0, TAU);
+  g.clip();
+  let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+  for (const p of parts){ const m = Math.max(p.rx, p.ry); x0 = Math.min(x0, p.x - m); x1 = Math.max(x1, p.x + m); y0 = Math.min(y0, p.y - m); y1 = Math.max(y1, p.y + m); }
+  if (C.pat === 'tabby'){
+    g.strokeStyle = C.F.dark; g.globalAlpha = 0.55; g.lineWidth = 3.2; g.lineCap = 'round';
+    if (ex.horizontal){ for (let y = y0 + 4; y < y1; y += 8){ g.beginPath(); g.moveTo(x0, y); g.quadraticCurveTo((x0 + x1) / 2, y + 5, x1, y); g.stroke(); } }
+    else { for (let x = x0 + 3; x < x1; x += 8.5){ g.beginPath(); g.moveTo(x, y0); g.quadraticCurveTo(x + 5, (y0 + y1) / 2, x - 2, y1); g.stroke(); } }
+  } else if (C.pat === 'tuxedo'){
+    g.fillStyle = WHITE;
+    if (ex.belly){ const b = ex.belly; ell(g, b.x, b.y, b.rx, b.ry, b.rot); g.fill(); }
+    if (ex.chest){ const b = ex.chest; ell(g, b.x, b.y, b.rx, b.ry, b.rot); g.fill(); }
+  } else if (C.pat === 'calico'){
+    parts.forEach((p, i) => { (CAL_SPOTS[i] || []).forEach(s => {
+      g.fillStyle = CALICO[s[3]]; ell(g, p.x + s[0] * p.rx, p.y + s[1] * p.ry, s[2] * Math.min(p.rx, p.ry) * 1.3, s[2] * Math.min(p.rx, p.ry)); g.fill(); }); });
+  } else if (C.pat === 'point'){
+    if (ex.face){ const f = ex.face; const gr = g.createRadialGradient(f.x, f.y, 0, f.x, f.y, f.r);
+      gr.addColorStop(0, 'rgba(70,48,36,.92)'); gr.addColorStop(0.6, 'rgba(80,56,42,.55)'); gr.addColorStop(1, 'rgba(80,56,42,0)');
+      g.fillStyle = gr; g.fillRect(x0, y0, x1 - x0, y1 - y0); }
+  }
+  g.restore();
+}
+function leg(g, x, top, w, color, paw){
+  g.fillStyle = color; rrect(g, x - w / 2, top, w, -top + 1, w / 2); g.fill();
+  if (paw){ g.fillStyle = paw; ell(g, x + 1, -2, w / 2 + 1, 3.4); g.fill(); }
+}
+function ears(g, hx, hy, r, C, back, flip){
+  // two ears seen from the side; back = flattened
+  const a = back ? [[hx - r*0.75, hy - r*0.3], [hx - r*1.35, hy - r*0.95], [hx - r*0.1, hy - r*0.85]]
+                 : [[hx - r*0.75, hy - r*0.4], [hx - r*0.55, hy - r*1.6], [hx - r*0.05, hy - r*0.85]];
+  const b = back ? [[hx - r*0.05, hy - r*0.9], [hx - r*0.75, hy - r*1.4], [hx + r*0.6, hy - r*0.65]]
+                 : [[hx + r*0.02, hy - r*0.9], [hx + r*0.35, hy - r*1.65], [hx + r*0.75, hy - r*0.5]];
+  g.fillStyle = C.F.shade; poly(g, a); g.fill();
+  g.fillStyle = C.ear; poly(g, b); g.fill();
+  g.fillStyle = C.inner; poly(g, [[lerp(b[0][0], b[1][0], .25), lerp(b[0][1], b[1][1], .25) + 2], [lerp(b[1][0], b[0][0], .2), lerp(b[1][1], b[0][1], .2) + 2], [lerp(b[2][0], b[1][0], .35), lerp(b[2][1], b[1][1], .35)]]); g.fill();
+}
+function face(g, hx, hy, r, C, expr, t){
+  // muzzle
+  if (C.pat === 'tuxedo'){ g.fillStyle = WHITE; ell(g, hx + r*0.55, hy + r*0.38, r*0.55, r*0.4); g.fill(); }
+  g.fillStyle = C.nose; ell(g, hx + r*0.97, hy + r*0.12, 2.1, 1.7); g.fill();
+  g.strokeStyle = 'rgba(60,40,35,.55)'; g.lineWidth = 1; g.beginPath(); g.moveTo(hx + r*0.95, hy + r*0.25); g.quadraticCurveTo(hx + r*0.85, hy + r*0.5, hx + r*0.65, hy + r*0.42); g.stroke();
+  // eye
+  const ex = hx + r*0.42, ey = hy - r*0.12, ec = C.eye.c;
+  const blink = (t % 4.3) < 0.13;
+  const dark = 'rgba(35,25,22,.85)';
+  g.lineCap = 'round';
+  if (expr === 'sleep' || (blink && expr !== 'happy')){
+    g.strokeStyle = dark; g.lineWidth = 1.6; g.beginPath(); g.arc(ex, ey - 1, 3.4, 0.15 * Math.PI, 0.85 * Math.PI); g.stroke();
+  } else if (expr === 'happy'){
+    g.strokeStyle = dark; g.lineWidth = 1.8; g.beginPath(); g.arc(ex, ey + 2, 3.6, 1.15 * Math.PI, 1.85 * Math.PI); g.stroke();
+  } else if (expr === 'cold'){
+    g.fillStyle = ec; ell(g, ex, ey + 0.6, 4, 1.7); g.fill();
+    g.fillStyle = '#111'; ell(g, ex + 0.8, ey + 0.6, 0.7, 1.6); g.fill();
+    g.strokeStyle = dark; g.lineWidth = 1.8; g.beginPath(); g.moveTo(ex - 4.6, ey - 2.4); g.lineTo(ex + 4.4, ey - 0.6); g.stroke();
+  } else {
+    g.fillStyle = ec; ell(g, ex, ey, 3.7, 4.2); g.fill();
+    g.fillStyle = '#121010'; ell(g, ex + 0.9, ey, 1.4, 3.4); g.fill();
+    g.fillStyle = 'rgba(255,255,255,.85)'; ell(g, ex - 0.9, ey - 1.6, 0.9, 0.9); g.fill();
+    if (expr === 'annoyed'){ g.fillStyle = C.pat === 'point' ? '#6a4c3c' : C.F.base; g.fillRect(ex - 4.5, ey - 5, 9, 4.2); g.strokeStyle = dark; g.lineWidth = 1.4; g.beginPath(); g.moveTo(ex - 4.4, ey - 0.8); g.lineTo(ex + 4.2, ey - 0.8); g.stroke(); }
+  }
+  // whiskers
+  g.strokeStyle = C.whisk; g.lineWidth = 0.8;
+  for (let i = 0; i < 3; i++){ g.beginPath(); g.moveTo(hx + r*0.8, hy + r*(0.28 + i*0.1)); g.lineTo(hx + r*1.85, hy + r*(0.05 + i*0.22)); g.stroke(); }
+}
+function headParts(hx, hy, r){ return { x:hx, y:hy, rx:r, ry:r*0.93 }; }
+
+function drawStand(g, o, C){
+  const f = o.fat, t = o.t, walk = o.pose === 'walk', eat = o.pose === 'eat';
+  const rx = 30 * f, ry = 14 + (f - 1) * 12, cy = -30 + (f - 1) * 5;
+  const sw = walk ? Math.sin(o.walkPhase) * 7 : 0;
+  const top = cy + ry * 0.35;
+  // tail
+  const wave = Math.sin(t * 2.2) * 6;
+  g.strokeStyle = C.tail; g.lineWidth = 7; g.lineCap = 'round'; g.beginPath(); g.moveTo(-rx + 6, cy - 4);
+  if (o.expr === 'cold') g.bezierCurveTo(-rx - 14, cy + 2, -rx - 24, cy + 14 + wave * 0.4, -rx - 34, cy + 16);
+  else g.bezierCurveTo(-rx - 18, cy - 10, -rx - 14 + wave, cy - 40, -rx - 4 + wave, cy - 52);
+  g.stroke();
+  if (C.pat === 'tabby'){ g.strokeStyle = C.F.dark; g.globalAlpha = 0.5; g.lineWidth = 7; g.setLineDash([3, 5]); g.stroke(); g.setLineDash([]); g.globalAlpha = 1; }
+  // far legs
+  leg(g, -rx * 0.55 + 5 - sw, top, 9, C.legFar, C.paw);
+  leg(g, rx * 0.55 + 5 + sw, top, 9, C.legFar, C.paw);
+  // head geometry
+  const hr = 14;
+  const hx = rx + 4, hy = eat ? cy + 16 + Math.sin(t * 9) * 1.5 : cy - 15 - (walk ? Math.abs(Math.sin(o.walkPhase)) * 1.5 : 0);
+  ears(g, hx, hy, hr, C, o.earsBack);
+  const body = { x:0, y:cy, rx, ry }, neck = { x:rx - 6, y:(cy + hy) / 2 + 2, rx:11, ry:13, rot:eat ? 0.6 : -0.3 };
+  const parts = [body, headParts(hx, hy, hr), neck];
+  fillParts(g, parts, C.F.base);
+  patternOver(g, parts, C, { belly:{ x:rx * 0.25, y:cy + ry * 0.8, rx:rx * 0.7, ry:ry * 0.5 }, chest:{ x:rx - 2, y:cy + 4, rx:8, ry:11 }, face:{ x:hx + 6, y:hy + 2, r:hr * 1.25 } });
+  // near legs
+  leg(g, -rx * 0.55 + sw, top, 9.5, C.leg, C.paw);
+  leg(g, rx * 0.55 - sw, top, 9.5, C.leg, C.paw);
+  face(g, hx, hy, hr, C, o.expr, t);
+}
+
+function drawSit(g, o, C){
+  const f = o.fat, t = o.t, groom = o.pose === 'groom';
+  const haunch = { x:-8, y:-19 - (f - 1) * 2, rx:21 * f, ry:19 + (f - 1) * 6 };
+  const chest = { x:7, y:-38, rx:12 * f + 2, ry:20, rot:-0.15 };
+  const hr = 14, hx = groom ? 15 : 11, hy = groom ? -58 + Math.sin(t * 7) * 1.5 : -64;
+  // far front leg
+  leg(g, 3, -30, 8, C.legFar, C.paw);
+  ears(g, hx, hy, hr, C, o.earsBack);
+  const parts = [haunch, headParts(hx, hy, hr), chest];
+  fillParts(g, parts, C.F.base);
+  patternOver(g, parts, C, { chest:{ x:13, y:-36, rx:9, ry:16 }, belly:{ x:2, y:-8, rx:14, ry:9 }, face:{ x:hx + 6, y:hy + 2, r:hr * 1.25 } });
+  // hind foot
+  g.fillStyle = C.leg; ell(g, -3, -3.5, 11 * f, 4.2); g.fill();
+  if (C.paw){ g.fillStyle = C.paw; ell(g, 4, -3, 5, 3); g.fill(); }
+  // near front leg (raised when grooming)
+  if (groom){
+    g.strokeStyle = C.leg; g.lineWidth = 8; g.lineCap = 'round'; g.beginPath(); g.moveTo(13, -28); g.quadraticCurveTo(24, -36, 22 + Math.sin(t * 7) * 1.5, -48); g.stroke();
+    if (C.paw){ g.fillStyle = C.paw; ell(g, 22, -49, 4.4, 4.4); g.fill(); }
+    leg(g, 9, -26, 8.5, C.leg, C.paw);
+  } else leg(g, 13, -30, 8.5, C.leg, C.paw);
+  // tail wrapped on the floor
+  const wave = Math.sin(t * (o.expr === 'cold' ? 5 : 1.6)) * (o.expr === 'cold' ? 5 : 3);
+  g.strokeStyle = C.tail; g.lineWidth = 7; g.lineCap = 'round'; g.beginPath();
+  g.moveTo(-24 * f, -7); g.bezierCurveTo(-30 * f, 3, 0, 4, 22 + wave, -3 + wave * 0.3); g.stroke();
+  face(g, hx, hy, hr, C, o.expr, t);
+}
+
+function drawSleep(g, o, C){
+  const f = o.fat, t = o.t, br = 1 + Math.sin(t * 1.7) * 0.03;
+  const body = { x:0, y:-14 - (f - 1) * 3, rx:32 * f, ry:(14 + (f - 1) * 8) * br };
+  const hr = 12.5, hx = 25 * f, hy = -13;
+  ears(g, hx, hy, hr, C, false);
+  const parts = [body, headParts(hx, hy, hr)];
+  fillParts(g, parts, C.F.base);
+  patternOver(g, parts, C, { belly:{ x:10, y:-2, rx:20 * f, ry:6 }, face:{ x:hx + 5, y:hy + 2, r:hr * 1.3 } });
+  g.strokeStyle = C.tail; g.lineWidth = 7; g.lineCap = 'round'; g.beginPath();
+  g.moveTo(-30 * f, -7); g.bezierCurveTo(-22 * f, 6, 18 * f, 7, 34 * f + Math.sin(t * 0.8) * 2, -1); g.stroke();
+  face(g, hx, hy, hr, C, 'sleep', t);
+}
+
+function drawBack(g, o, C){
+  const f = o.fat, t = o.t, cold = o.expr === 'cold';
+  const haunch = { x:0, y:-24 - (f - 1) * 2, rx:24 * f, ry:24 + (f - 1) * 6 };
+  const upper = { x:0, y:-46, rx:15 * f + 1, ry:16 };
+  const look = o.gaze === 'window' ? -4 : 0;
+  const head = { x:Math.sin(t * 0.5) * 1.5, y:-68 + look, rx:15, ry:14 };
+  // tail behind on the floor, flicking when cold
+  const wave = cold ? Math.sin(t * 6) * 6 : Math.sin(t * 1.4) * 3;
+  g.strokeStyle = C.tail; g.lineWidth = 7.5; g.lineCap = 'round'; g.beginPath();
+  g.moveTo(10 * f, -5); g.bezierCurveTo(30 * f, 0, 38 * f, -6, 32 * f + wave, -18 - Math.abs(wave)); g.stroke();
+  if (C.pat === 'tabby'){ g.strokeStyle = C.F.dark; g.globalAlpha = 0.5; g.setLineDash([3, 5]); g.stroke(); g.setLineDash([]); g.globalAlpha = 1; }
+  // ears
+  const hx = head.x, hy = head.y;
+  const e1 = cold ? [[hx - 13, hy - 4], [hx - 24, hy - 9], [hx - 6, hy - 12]] : [[hx - 13, hy - 5], [hx - 12, hy - 23], [hx - 3, hy - 12]];
+  const e2 = cold ? [[hx + 13, hy - 4], [hx + 24, hy - 9], [hx + 6, hy - 12]] : [[hx + 13, hy - 5], [hx + 12, hy - 23], [hx + 3, hy - 12]];
+  g.fillStyle = C.ear; poly(g, e1); g.fill(); poly(g, e2); g.fill();
+  const parts = [haunch, head, upper];
+  fillParts(g, parts, C.F.base);
+  patternOver(g, parts, C, { horizontal:true, face:{ x:hx, y:hy, r:20 } });
+  // paws
+  g.fillStyle = C.paw || C.leg; ell(g, -11 * f, -2.5, 7, 3.4); g.fill(); ell(g, 11 * f, -2.5, 7, 3.4); g.fill();
+}
+
+function drawCat(g, o){
+  const C = catColors(o.look);
+  g.save();
+  g.globalAlpha = o.alpha == null ? 1 : o.alpha;
+  g.translate(o.x, o.y);
+  g.fillStyle = 'rgba(40,25,10,.2)'; ell(g, 0, 0, (o.pose === 'back' ? 26 : 36) * o.s * o.fat, 6.5 * o.s); g.fill();
+  if (o.pose === 'back'){ g.scale(o.s, o.s); drawBack(g, o, C); }
+  else {
+    g.scale(o.s * o.dir, o.s);
+    if (o.pose === 'walk' || o.pose === 'eat') drawStand(g, o, C);
+    else if (o.pose === 'sleep') drawSleep(g, o, C);
+    else drawSit(g, o, C);
+  }
+  g.restore();
+}
+
+/* ---------- room ---------- */
+const STARS = Array.from({ length:22 }, (_, i) => [108 + ((i * 97) % 214), 70 + ((i * 53) % 110), (i % 3) * 0.4 + 0.7]);
+const BOOKS = [['#7c4b3a',10,58],['#3f6475',8,52],['#c2a35a',12,60],['#5d7a52',9,48],['#9a5d6e',7,55],['#d7cfbf',11,50],['#4a4f6b',10,58],['#a7723f',8,46]];
+function hourOf(){ const d = new Date(state ? state.gameTime : Date.now()); return d.getHours() + d.getMinutes() / 60 + d.getSeconds() / 3600; }
+function daylight(h){ if (h < 5 || h >= 20) return 0; if (h < 7) return (h - 5) / 2; if (h < 18) return 1; return 1 - (h - 18) / 2; }
+function warmth(h){ return Math.max(0, 1 - Math.abs(h - 18.7) / 1.5, 1 - Math.abs(h - 6) / 1.3); }
+function sunShift(h){ return clamp((12.5 - h) * 16, -110, 110); }
+function sunSpot(){ const s = sunShift(hourOf()); return { x:clamp(245 + s * 1.3, 140, 520), y:470 }; }
+
+function drawRoom(g, h, doorOpen){
+  const day = daylight(h), warm = warmth(h);
+  // wall
+  const wg = g.createLinearGradient(0, 0, 0, FLOOR);
+  wg.addColorStop(0, '#c9d5c6'); wg.addColorStop(1, '#b9c8b7');
+  g.fillStyle = wg; g.fillRect(0, 0, W, FLOOR);
+  g.fillStyle = '#aebdac'; g.fillRect(0, 282, W, FLOOR - 282);
+  g.fillStyle = '#e4dfd2'; g.fillRect(0, 278, W, 5); g.fillRect(0, FLOOR - 12, W, 12);
+  g.strokeStyle = 'rgba(60,80,65,.18)'; g.lineWidth = 1.5;
+  for (let x = 40; x < W; x += 90){ g.strokeRect(x, 294, 70, 46); }
+
+  // window
+  g.fillStyle = '#8b6a4a'; g.fillRect(96, 56, 238, 200);
+  g.save(); g.beginPath(); g.rect(106, 66, 218, 180); g.clip();
+  const top = mix(mix('#141c33', '#8fc6ea', day), '#e7915f', warm * 0.35), bot = mix(mix('#27304f', '#d6ecf6', day), '#f3b77c', warm * 0.75);
+  const sg = g.createLinearGradient(0, 66, 0, 246); sg.addColorStop(0, top); sg.addColorStop(1, bot); g.fillStyle = sg; g.fillRect(106, 66, 218, 180);
+  if (day < 0.6){ g.fillStyle = `rgba(255,255,240,${(1 - day / 0.6) * 0.9})`; for (const s of STARS){ ell(g, s[0], s[1], s[2], s[2]); g.fill(); } }
+  if (day > 0){ const p = clamp((h - 6) / 13, 0, 1); const sx = 106 + p * 218, sy = 90 + (1 - Math.sin(p * Math.PI)) * 120;
+    g.fillStyle = mix('#fff6d8', '#ffb46b', warm); g.globalAlpha = day; ell(g, sx, sy, 15, 15); g.fill(); g.globalAlpha = 1; }
+  else { g.fillStyle = '#f2ecd2'; ell(g, 288, 96, 13, 13); g.fill(); g.fillStyle = top; ell(g, 294, 91, 11, 11); g.fill(); }
+  // rooftops
+  const roof = mix('#1a2133', '#7f909c', day);
+  g.fillStyle = roof; g.beginPath(); g.moveTo(106, 246);
+  [[106,212],[132,198],[158,212],[158,204],[190,204],[190,186],[214,186],[214,206],[240,192],[266,206],[266,196],[296,196],[296,214],[324,206],[324,246]].forEach(p => g.lineTo(p[0], p[1]));
+  g.closePath(); g.fill();
+  if (day < 0.5){ g.fillStyle = `rgba(255,214,130,${0.9 - day})`; [[140,214],[198,196],[204,214],[278,204],[306,222],[248,214]].forEach(p => g.fillRect(p[0], p[1], 5, 6)); }
+  g.restore();
+  g.fillStyle = '#8b6a4a'; g.fillRect(212, 66, 6, 180); g.fillRect(106, 153, 218, 6);
+  g.fillStyle = '#9c7a57'; g.fillRect(88, 250, 254, 12);
+  // curtains
+  g.fillStyle = '#5e5446'; g.fillRect(64, 44, 302, 5);
+  for (const side of [0, 1]){
+    const x0 = side ? 322 : 70, x1 = side ? 362 : 110;
+    g.fillStyle = '#dccfb9'; g.beginPath(); g.moveTo(x0, 48); g.lineTo(x1, 48);
+    g.quadraticCurveTo(side ? x1 + 4 : x1 - 12, 170, side ? x1 + 2 : x1 - 6, 296); g.lineTo(side ? x0 + 6 : x0 - 2, 296);
+    g.quadraticCurveTo(side ? x0 + 12 : x0 - 4, 170, x0, 48); g.fill();
+    g.strokeStyle = 'rgba(120,100,75,.25)'; g.lineWidth = 2;
+    for (let k = 1; k < 4; k++){ const xx = lerp(x0, x1, k / 4); g.beginPath(); g.moveTo(xx, 52); g.lineTo(xx + (side ? 3 : -4), 292); g.stroke(); }
+  }
+
+  // clock
+  g.fillStyle = '#f2eee4'; ell(g, 440, 112, 26, 26); g.fill(); g.strokeStyle = '#5c4a39'; g.lineWidth = 4; g.stroke();
+  g.strokeStyle = '#3a2f26'; g.lineCap = 'round';
+  const hh = (h % 12) / 12 * TAU, mm = (h % 1) * TAU;
+  g.lineWidth = 3; g.beginPath(); g.moveTo(440, 112); g.lineTo(440 + Math.sin(hh) * 13, 112 - Math.cos(hh) * 13); g.stroke();
+  g.lineWidth = 2; g.beginPath(); g.moveTo(440, 112); g.lineTo(440 + Math.sin(mm) * 19, 112 - Math.cos(mm) * 19); g.stroke();
+  for (let i = 0; i < 12; i++){ const a = i / 12 * TAU; g.fillStyle = '#5c4a39'; ell(g, 440 + Math.sin(a) * 21, 112 - Math.cos(a) * 21, 1.2, 1.2); g.fill(); }
+
+  // bookshelf
+  g.fillStyle = '#6d5038'; g.fillRect(516, 150, 100, 212);
+  g.fillStyle = '#4c3727'; g.fillRect(524, 158, 84, 196);
+  for (let r = 0; r < 3; r++){
+    const y = 222 + r * 66; g.fillStyle = '#6d5038'; g.fillRect(516, y, 100, 8);
+    let x = 528; BOOKS.forEach((b, i) => { if ((i + r) % 4 === 3) return; const bh = b[2] - r * 3; if (x + b[1] > 604) return; g.fillStyle = b[0]; g.fillRect(x, y - bh, b[1], bh); x += b[1] + 1; });
+  }
+  g.fillStyle = '#c9b48a'; g.beginPath(); g.moveTo(560, 150); g.lineTo(574, 128); g.lineTo(588, 150); g.fill();
+
+  // floor lamp
+  g.strokeStyle = '#4d453c'; g.lineWidth = 3; g.beginPath(); g.moveTo(676, 392); g.lineTo(676, 210); g.stroke();
+  g.fillStyle = '#4d453c'; ell(g, 676, 393, 18, 5); g.fill();
+  g.fillStyle = day < 0.5 ? '#f6e3b4' : '#e8dcc2'; poly(g, [[652, 216], [700, 216], [690, 176], [662, 176]]); g.fill();
+
+  // door
+  g.fillStyle = '#7a5a3e'; g.fillRect(752, 104, 116, FLOOR - 104);
+  const dg = g.createLinearGradient(0, 110, 0, FLOOR); dg.addColorStop(0, '#22292b'); dg.addColorStop(1, '#3a4241');
+  g.fillStyle = dg; g.fillRect(760, 110, 100, FLOOR - 110);
+  if (doorOpen > 0.02){ g.fillStyle = `rgba(230,236,226,${0.25 * doorOpen})`; g.fillRect(760, 110, 100, FLOOR - 110); }
+  const dw = 100 * (1 - doorOpen * 0.82);
+  g.fillStyle = '#a77e56'; g.fillRect(860 - dw, 110, dw, FLOOR - 110);
+  if (dw > 40){
+    g.strokeStyle = 'rgba(70,45,25,.35)'; g.lineWidth = 2;
+    g.strokeRect(860 - dw + dw * 0.14, 128, dw * 0.72, 90); g.strokeRect(860 - dw + dw * 0.14, 236, dw * 0.72, 104);
+    g.fillStyle = '#d8b86a'; ell(g, 860 - dw + dw * 0.14, 240, 4, 4); g.fill();
+  }
+
+  // floor
+  g.fillStyle = '#b48a5f'; g.fillRect(0, FLOOR, W, H - FLOOR);
+  const rows = 9;
+  for (let i = 0; i < rows; i++){
+    const y0 = FLOOR + (H - FLOOR) * Math.pow(i / rows, 1.35), y1 = FLOOR + (H - FLOOR) * Math.pow((i + 1) / rows, 1.35);
+    if (i % 2){ g.fillStyle = '#ac8257'; g.fillRect(0, y0, W, y1 - y0); }
+    g.strokeStyle = 'rgba(80,50,28,.28)'; g.lineWidth = 1; g.beginPath(); g.moveTo(0, y0); g.lineTo(W, y0); g.stroke();
+    const step = 150 + i * 18; for (let x = (i * 67) % step; x < W; x += step){ g.beginPath(); g.moveTo(x, y0); g.lineTo(x, y1); g.stroke(); }
+  }
+  // sunbeam
+  if (day > 0.05){
+    const s = sunShift(h);
+    g.fillStyle = `rgba(255,236,170,${0.26 * day})`;
+    poly(g, [[112 + s, 384], [322 + s, 384], [372 + s * 1.7, 548], [150 + s * 1.7, 548]]); g.fill();
+    g.fillStyle = `rgba(255,236,170,${0.1 * day})`;
+    poly(g, [[104, 262], [326, 262], [326 + s * 0.15, 282], [104 + s * 0.15, 282]]); g.fill();
+  }
+  // rug
+  g.fillStyle = '#68869c'; ell(g, 500, 478, 176, 50); g.fill();
+  g.strokeStyle = '#88a6ba'; g.lineWidth = 4; ell(g, 500, 478, 150, 38); g.stroke();
+  g.strokeStyle = 'rgba(240,235,220,.45)'; g.lineWidth = 1.5; ell(g, 500, 478, 120, 27); g.stroke();
+  // plant
+  g.fillStyle = '#5c8857';
+  [[-0.9, 30], [-0.4, 40], [0.1, 44], [0.6, 38], [1.0, 28]].forEach(l => { ell(g, 52 + Math.sin(l[0]) * 22, 352 - Math.cos(l[0]) * l[1] * 0.8, 8, 22, l[0]); g.fill(); });
+  g.fillStyle = '#486f45'; ell(g, 44, 340, 6, 18, -0.6); g.fill();
+  g.fillStyle = '#8a6852'; poly(g, [[32, 356], [72, 356], [66, 400], [38, 400]]); g.fill();
+}
+
+const BOWL = { x:130, y:548 }, BED = { x:300, y:506 };
+function drawBowl(g){
+  g.save(); g.translate(BOWL.x, BOWL.y);
+  g.fillStyle = '#2f5869'; ell(g, 0, -12, 30, 8); g.fill();
+  const n = state ? state.bowl.length : 0;
+  if (n){
+    const f = FOODS[state.bowl[0]];
+    g.fillStyle = f.color; ell(g, 0, -13 - n * 1.6, 23, 5 + n * 1.8); g.fill();
+    g.fillStyle = f.dots; for (let i = 0; i < 9; i++){ ell(g, -16 + i * 4, -14 - n * 1.6 + ((i * 7) % 5) - 2, 1.6, 1.3); g.fill(); }
+  }
+  g.fillStyle = '#4a8197'; g.beginPath(); g.moveTo(-30, -12); g.lineTo(-24, 4); g.quadraticCurveTo(0, 9, 24, 4); g.lineTo(30, -12); g.ellipse(0, -12, 30, 8, 0, 0, Math.PI); g.fill();
+  g.strokeStyle = 'rgba(255,255,255,.35)'; g.lineWidth = 1.5; g.beginPath(); g.ellipse(0, -12, 30, 8, 0, 0.1, Math.PI - 0.1); g.stroke();
+  g.strokeStyle = '#f1ede4'; g.lineWidth = 1.6; g.beginPath(); g.moveTo(-8, -2); g.quadraticCurveTo(0, -6, 7, -2); g.quadraticCurveTo(0, 2, -8, -2); g.lineTo(-12, -5); g.moveTo(-8, -2); g.lineTo(-12, 1); g.stroke();
+  g.restore();
+}
+function drawBedBack(g){ g.save(); g.translate(BED.x, BED.y); g.fillStyle = '#a98536'; ell(g, 0, -6, 66, 24); g.fill(); g.fillStyle = '#ebe0c8'; ell(g, 0, -8, 53, 15); g.fill(); g.restore(); }
+function drawBedFront(g){ g.save(); g.translate(BED.x, BED.y); g.fillStyle = '#937329'; g.beginPath(); g.ellipse(0, -6, 66, 24, 0, 0, Math.PI); g.ellipse(0, -4, 55, 13, 0, Math.PI, 0, true); g.closePath(); g.fill(); g.restore(); }
+function drawToy(g, t){
+  g.save(); g.translate(t.x, t.y);
+  g.fillStyle = 'rgba(40,25,10,.2)'; ell(g, 0, 0, 12, 3); g.fill();
+  g.strokeStyle = '#6f6a66'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(-10, -4); g.quadraticCurveTo(-22, -12, -26, -2); g.stroke();
+  g.fillStyle = '#a29d97'; ell(g, 0, -5, 11, 6.5); g.fill();
+  g.fillStyle = '#e8a9a9'; ell(g, 5, -11, 3.5, 3.5); g.fill();
+  g.fillStyle = '#222'; ell(g, 8, -6, 1.2, 1.2); g.fill();
+  g.restore();
+}
+
+/* ---------- cat brain ---------- */
+const SPOTS = { window:{ x:215, y:418 }, door:{ x:810, y:404 } };
+const cat = { x:480, y:470, dir:1, pose:'sit', walkPhase:0, t:0, act:null, alpha:1, hidden:false, petTimes:[], lastPet:0, happyUntil:0 };
+let toy = null, lastPlay = 0, doorOpen = 0, doorTarget = 0;
+const particles = [];
+const scaleAt = y => lerp(0.8, 1.22, clamp((y - 395) / 185, 0, 1));
+const randFloor = () => ({ x:rand(80, 880), y:rand(405, 578) });
+function eatSpot(){ const y = BOWL.y - 4; return { x:BOWL.x + (30 * fat() + 6) * scaleAt(y), y }; }
+function walkTo(p, then, speed){ cat.act = { type:'walk', tx:clamp(p.x, 60, 900), ty:clamp(p.y, 400, 580), then, speed:speed || 1 }; }
+function awayPoint(){ const dx = cat.x < 480 ? rand(220, 380) : -rand(220, 380); return { x:clamp(cat.x + dx, 80, 880), y:rand(410, 570) }; }
+const walkingTo = type => cat.act && cat.act.type === 'walk' && cat.act.then && cat.act.then.type === type;
+
+function think(){
+  const s = state;
+  if (s.leaving){ walkTo(SPOTS.door, { type:'exit' }, 0.8); return; }
+  if (s.bowl.length){ walkTo(eatSpot(), { type:'eat', dur:3.2 }, 1.3); return; }
+  const cold = isCold(), r = risk(), roll = Math.random();
+  if (toy && !cold && s.mood >= 40){ cat.act = { type:'chase' }; return; }
+  if (cold){
+    if (r > 40 && roll < 0.35) return walkTo(SPOTS.door, { type:'gaze', gaze:'door', dur:rand(8, 14) }, 0.7);
+    if (roll < 0.75) return walkTo(randFloor(), { type:'back', dur:rand(7, 13) }, 0.7);
+    return walkTo(randFloor(), { type:'sit', dur:rand(3, 6) }, 0.7);
+  }
+  if (s.full < 35 && roll < 0.5){ const e = eatSpot(); return walkTo({ x:e.x + 22, y:e.y + 6 }, { type:'beg', dur:rand(6, 10) }); }
+  const day = daylight(hourOf()) > 0.3;
+  if (roll < 0.34) return walkTo(randFloor(), { type:'sit', dur:rand(2, 5) });
+  if (roll < 0.50) return walkTo(randFloor(), { type:'sit', dur:rand(5, 9) });
+  if (roll < 0.66) return walkTo(day && Math.random() < 0.6 ? sunSpot() : { x:BED.x, y:BED.y - 2 }, { type:'sleep', dur:rand(18, 40) });
+  if (roll < 0.79) return walkTo(randFloor(), { type:'groom', dur:rand(4, 7) });
+  if (roll < 0.92) return walkTo(SPOTS.window, { type:'gaze', gaze:'window', dur:rand(6, 11) });
+  return walkTo(randFloor(), { type:'sit', dur:rand(2, 4) });
+}
+
+function startAct(a){
+  cat.act = a || null;
+  if (!a) return;
+  if (a.type === 'beg') { cat.dir = -1; if (Math.random() < 0.7) say(pick(L.hungry)); }
+  if (a.type === 'gaze' && a.gaze === 'door' && risk() > 55 && Math.random() < 0.6) say(pick(L.door), 'cold');
+  if (a.type === 'exit') a.t = 0;
+}
+
+function updateCat(dt){
+  const s = state, t = nowS();
+  cat.t += dt;
+  doorOpen += (doorTarget - doorOpen) * Math.min(1, dt * 3);
+  if (toy){ toy.t -= dt; if (toy.t <= 0) toy = null; }
+
+  if (s.status === 'gone'){
+    if (s.returning && (!cat.act || cat.act.type !== 'enter')){ cat.act = { type:'enter' }; cat.hidden = false; cat.alpha = 0; cat.x = SPOTS.door.x; cat.y = SPOTS.door.y - 6; }
+    if (!cat.act || cat.act.type !== 'enter'){ cat.hidden = true; return; }
+  }
+  // interruptions
+  const a0 = cat.act;
+  if (s.status === 'home' && a0 && a0.type !== 'exit' && a0.type !== 'enter'){
+    if (s.leaving && !walkingTo('exit')) cat.act = null;
+    else if (!s.leaving && s.bowl.length && a0.type !== 'eat' && !walkingTo('eat')) cat.act = null;
+  }
+  if (!cat.act) think();
+  const a = cat.act; if (!a) return;
+
+  switch (a.type){
+    case 'walk': {
+      const dx = a.tx - cat.x, dy = a.ty - cat.y, d = Math.hypot(dx, dy), sScale = scaleAt(cat.y);
+      const sp = 70 / (0.6 + 0.4 * fat()) * a.speed * sScale;
+      if (d < 3){ cat.x = a.tx; cat.y = a.ty; startAct(a.then); }
+      else { const m = Math.min(d, sp * dt); cat.x += dx / d * m; cat.y += dy / d * m; if (Math.abs(dx) > 1) cat.dir = dx > 0 ? 1 : -1; cat.walkPhase += m / (sScale * 4.2); cat.pose = 'walk'; }
+      break;
+    }
+    case 'sit': case 'groom': case 'beg':
+      cat.pose = a.type === 'groom' ? 'groom' : 'sit'; a.dur -= dt; if (a.dur <= 0) cat.act = null; break;
+    case 'sleep':
+      cat.pose = 'sleep'; a.dur -= dt; a.z = (a.z || 0) - dt;
+      if (a.z <= 0){ a.z = 1.3; const sc2 = scaleAt(cat.y); particles.push({ k:'z', x:cat.x + cat.dir * 26 * sc2, y:cat.y - 30 * sc2, life:2.4, max:2.4 }); }
+      if (a.dur <= 0) cat.act = { type:'sit', dur:rand(1.5, 3) };
+      break;
+    case 'back': case 'gaze':
+      cat.pose = 'back'; a.dur -= dt; if (a.dur <= 0) cat.act = null; break;
+    case 'eat':
+      cat.pose = 'eat'; cat.dir = -1; a.dur -= dt;
+      if (!s.bowl.length){ cat.act = null; break; }
+      if (a.dur <= 0){
+        const r = eatOne();
+        if (r){
+          particles.push({ k:'crumb', x:BOWL.x, y:BOWL.y - 16, life:0.8, max:0.8 });
+          if (r.wasCold) say(pick(L.coldEat), 'cold');
+          else if (r.over > 18) say(pick(L.overfed));
+          else if (r.type === 'churu') say(pick(L.churu));
+          else if (Math.random() < 0.7) say(pick(L.ate));
+        }
+        if (s.bowl.length) a.dur = 3.2; else cat.act = { type:'sit', dur:rand(2, 4) };
+        save();
+      }
+      break;
+    case 'chase': {
+      if (!toy){ cat.act = null; break; }
+      const dx = toy.x - cat.x, dy = toy.y - cat.y, d = Math.hypot(dx, dy), sScale = scaleAt(cat.y);
+      const sp = 170 / (0.6 + 0.4 * fat()) * sScale;
+      if (d < 8){
+        toy = null; particles.push({ k:'heart', x:cat.x, y:cat.y - 60 * sScale, life:1.4, max:1.4 });
+        if (t - lastPlay > 20){ s.mood = clamp(s.mood + 4, 0, 100); lastPlay = t; }
+        if (Math.random() < 0.7) say(pick(L.play));
+        cat.act = { type:'sit', dur:rand(2, 4) };
+      } else { const m = Math.min(d, sp * dt); cat.x += dx / d * m; cat.y += dy / d * m; if (Math.abs(dx) > 1) cat.dir = dx > 0 ? 1 : -1; cat.walkPhase += m / (sScale * 3.2); cat.pose = 'walk'; }
+      break;
+    }
+    case 'exit':
+      cat.pose = 'back'; doorTarget = 1; a.t += dt;
+      if (doorOpen > 0.85){ cat.alpha = Math.max(0, cat.alpha - dt * 0.9); cat.y -= dt * 8; }
+      if (cat.alpha <= 0){ goneNow(); cat.act = null; cat.hidden = true; doorTarget = 0; save(); showGone(); }
+      break;
+    case 'enter':
+      cat.pose = 'back'; doorTarget = 1;
+      if (doorOpen > 0.85) cat.alpha = Math.min(1, cat.alpha + dt * 0.9);
+      if (cat.alpha >= 1){
+        returnNow(); doorTarget = 0; cat.act = null; cat.y = SPOTS.door.y + 6; $('gone').hidden = true;
+        say(pick(L.back), 'cold'); save();
+      }
+      break;
+  }
+}
+
+/* ---------- speech ---------- */
+const bubble = $('bubble'), bubbleText = $('bubble-text'), bubbleTag = $('bubble-tag');
+let bubbleUntil = 0, nextQuote = nowS() + rand(15, 28), nextCold = nowS() + rand(10, 20), nextHungry = nowS() + rand(20, 35);
+function say(text, kind, dur){
+  kind = kind || 'normal';
+  bubble.className = 'bubble' + (kind === 'quote' ? ' quote' : kind === 'cold' ? ' cold' : '');
+  bubbleText.textContent = text;
+  bubbleTag.hidden = kind !== 'quote';
+  if (kind === 'quote') bubbleTag.textContent = `— ${state.look.name}, 아무도 묻지 않았지만`;
+  bubble.hidden = false; bubble.style.opacity = '1';
+  bubbleUntil = nowS() + (dur || (kind === 'quote' ? 8 + text.length * 0.04 : Math.max(3, text.length * 0.09)));
+  placeBubble();
+}
+function placeBubble(){
+  if (bubble.hidden) return;
+  const r = stage.getBoundingClientRect(), k = r.width / W, sScale = scaleAt(cat.y);
+  const headY = cat.pose === 'sleep' ? 42 : cat.pose === 'walk' || cat.pose === 'eat' ? 72 : 92;
+  const ax = cat.x * k, ay = Math.max(8, (cat.y - headY * sScale) * k - 8);
+  const bw = bubble.offsetWidth, left = clamp(ax - bw / 2, 6, r.width - bw - 6);
+  bubble.style.left = left + 'px'; bubble.style.top = ay + 'px';
+  bubble.style.setProperty('--arrow', clamp(ax - left, 14, bw - 14) + 'px');
+}
+function speechTick(){
+  const t = nowS();
+  if (!bubble.hidden && t > bubbleUntil){ bubble.hidden = true; }
+  if (state.status !== 'home' || cat.hidden || !bubble.hidden) return;
+  const a = cat.act; if (a && (a.type === 'sleep' || a.type === 'exit' || a.type === 'enter')) return;
+  if (isCold()){
+    if (t > nextCold){ say(pick(L.cold), 'cold'); nextCold = t + rand(30, 60); }
+    return;
+  }
+  if (t > nextQuote){
+    const seen = new Set(state.quotes.map(q => q.text));
+    const fresh = QUOTES.filter(q => !seen.has(q));
+    const q = pick(fresh.length ? fresh : QUOTES);
+    say(q, 'quote');
+    if (!seen.has(q)) state.quotes.push({ text:q, at:state.gameTime });
+    nextQuote = t + rand(70, 160); save();
+  } else if (state.full < 35 && t > nextHungry){ say(pick(L.hungry)); nextHungry = t + rand(25, 45); }
+}
+
+let toastTimer = 0;
+function toast(msg){ const el = $('toast'); el.textContent = msg; el.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => { el.hidden = true; }, 3800); }
+
+/* ---------- interactions ---------- */
+function toWorld(e){ const r = canvas.getBoundingClientRect(); return { x:(e.clientX - r.left) / r.width * W, y:(e.clientY - r.top) / r.height * H }; }
+function hitCat(p){ if (cat.hidden) return false; const s = scaleAt(cat.y); return Math.hypot(p.x - cat.x, (p.y - (cat.y - 34 * s)) * 1.1) < 68 * s; }
+canvas.addEventListener('pointerdown', e => {
+  if (!state) return;
+  const p = toWorld(e);
+  if (state.status === 'home' && hitCat(p)) pet();
+  else if (p.y > FLOOR + 30) throwToy(p);
+});
+function pet(){
+  const t = nowS(); if (t - cat.lastPet < 0.7) return; cat.lastPet = t;
+  cat.petTimes = cat.petTimes.filter(x => t - x < 15); cat.petTimes.push(t);
+  const a = cat.act;
+  if (a && (a.type === 'exit' || a.type === 'enter' || walkingTo('exit'))){ say(pick(L.leavingPet), 'cold'); return; }
+  if (isCold()){
+    say(pick(L.coldPet), 'cold'); state.mood = Math.max(0, state.mood - 0.5);
+    particles.push({ k:'dots', x:cat.x, y:cat.y - 80 * scaleAt(cat.y), life:1.4, max:1.4 });
+    walkTo(awayPoint(), { type:'back', dur:rand(6, 10) }, 1.1); return;
+  }
+  if (a && a.type === 'sleep'){ say(pick(L.woken)); state.mood = clamp(state.mood - 2, 0, 100); cat.act = { type:'sit', dur:2.5 }; return; }
+  if (a && (a.type === 'eat' || walkingTo('eat'))){ say('먹는 중이야.'); return; }
+  if (cat.petTimes.length > 4){ say(pick(L.tooMuch)); state.mood = clamp(state.mood - 1, 0, 100); walkTo(awayPoint(), { type:'sit', dur:rand(3, 5) }); return; }
+  state.mood = clamp(state.mood + (state.full >= 40 ? 4 : 1.5), 0, 100);
+  cat.happyUntil = t + 2.2;
+  particles.push({ k:'heart', x:cat.x + rand(-10, 10), y:cat.y - 90 * scaleAt(cat.y), life:1.4, max:1.4 });
+  say(pick(state.full < 40 ? L.petHungry : L.pet));
+  if (!a || a.type === 'walk' || a.type === 'back' || a.type === 'gaze'){ cat.act = { type:'sit', dur:rand(2.5, 4) }; cat.pose = 'sit'; }
+}
+function throwToy(p){
+  if (state.status !== 'home'){ toast('방이 조용해요. 장난감을 받아 줄 고양이가 없어요.'); return; }
+  toy = { x:clamp(p.x, 70, 890), y:clamp(p.y, 402, 580), t:12 };
+  const a = cat.act;
+  if (a && (a.type === 'eat' || a.type === 'exit' || a.type === 'enter' || walkingTo('eat') || walkingTo('exit'))) return;
+  if (isCold()){ say(pick(L.coldToy), 'cold'); return; }
+  if (a && a.type === 'sleep'){ if (Math.random() < 0.5) say('…(귀만 움직인다)'); return; }
+  if (state.mood < 40){ say(pick(L.meh)); return; }
+  cat.act = { type:'chase' };
+}
+function feed(type){
+  if (!state) return;
+  if (state.bowl.length >= 3){ toast('밥그릇이 가득 찼어요. 먹을 때까지 기다려 주세요.'); return; }
+  state.bowl.push(type);
+  toast(`${josa(FOODS[type].name, '을', '를')} 밥그릇에 담았어요.`);
+  if (state.status === 'home' && state.leaving && !(cat.act && cat.act.type === 'exit')){ state.leaving = false; cat.act = null; say(pick(L.stayed), 'cold'); }
+  if (state.status === 'gone') toast(`${josa(FOODS[type].name, '을', '를')} 담아 두었어요. 냄새를 맡고 돌아올지도 몰라요.`);
+  renderUI(); save();
+}
+document.querySelectorAll('[data-food]').forEach(b => b.addEventListener('click', () => feed(b.dataset.food)));
+document.querySelectorAll('[data-speed]').forEach(b => b.addEventListener('click', () => { state.speed = +b.dataset.speed; renderUI(); save(); }));
+
+/* ---------- gone ---------- */
+function showGone(){
+  const s = state, name = s.look.name;
+  $('gone-title').textContent = `${josa(name, '이', '가')} 집을 나갔다.`;
+  $('gone-letter').textContent = s.letter || LETTERS[0];
+  const gaveUp = s.goneH >= 72;
+  $('gone-hint').textContent = gaveUp ? `${josa(name, '은', '는')} 이제 돌아오지 않을 것 같다.` :
+    s.bowl.length ? '밥그릇에 밥이 있다. 냄새를 맡으면 돌아올지도 모른다. (집을 나간 뒤 72시간까지)' : '밥그릇에 밥을 두면 돌아올지도 모른다. 장담은 못 한다.';
+  $('gone-wait').hidden = gaveUp;
+  $('gone').hidden = false;
+}
+$('gone-wait').addEventListener('click', () => { feed('wet'); goneDismissed = true; $('gone').hidden = true; });
+$('gone-new').addEventListener('click', () => openCreator(true));
+
+/* ---------- creator ---------- */
+const draft = { name:'모모', fur:'cheese', pattern:'tabby', eye:'green' };
+let creatorOpen = false;
+function chipGroup(id, data, key, swatch){
+  const box = $(id); box.innerHTML = '';
+  Object.entries(data).forEach(([k, v]) => {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'chip'; b.dataset.k = k;
+    const name = typeof v === 'string' ? v : v.name;
+    if (swatch){ const i = document.createElement('i'); i.style.background = swatch(k, v); b.appendChild(i); }
+    b.appendChild(document.createTextNode(name));
+    b.addEventListener('click', () => { draft[key] = k; syncChips(); });
+    box.appendChild(b);
+  });
+}
+function syncChips(){
+  [['chips-fur', 'fur'], ['chips-pattern', 'pattern'], ['chips-eye', 'eye']].forEach(([id, key]) => {
+    $(id).querySelectorAll('.chip').forEach(c => c.setAttribute('aria-pressed', c.dataset.k === draft[key] ? 'true' : 'false'));
+  });
+}
+chipGroup('chips-fur', FURS, 'fur', (k, v) => v.sw);
+chipGroup('chips-pattern', PATTERNS, 'pattern');
+chipGroup('chips-eye', EYES, 'eye', (k, v) => v.c2 ? `linear-gradient(90deg, ${v.c} 50%, ${v.c2} 50%)` : v.c);
+function openCreator(replace){
+  creatorOpen = true;
+  $('creator-warn').hidden = !replace || !state;
+  if (replace && state) $('creator-warn').textContent = state.status === 'home'
+    ? `새 고양이를 데려오면 ${josa(state.look.name, '와', '과')}는 헤어지게 됩니다. 명언 수첩도 새로 시작합니다.`
+    : '새 고양이와 새로 시작합니다. 명언 수첩도 새로 시작합니다.';
+  $('creator-cancel').hidden = !state;
+  $('creator-title').textContent = replace && state ? '새 고양이 데려오기' : '고양이 만들기';
+  syncChips(); $('creator').hidden = false;
+  setTimeout(() => $('cat-name').focus(), 30);
+}
+function closeCreator(){ creatorOpen = false; $('creator').hidden = true; }
+$('creator-cancel').addEventListener('click', closeCreator);
+$('creator-random').addEventListener('click', () => {
+  draft.fur = pick(Object.keys(FURS)); draft.pattern = pick(Object.keys(PATTERNS)); draft.eye = pick(Object.keys(EYES));
+  const names = ['모모', '나비', '두부', '보리', '치즈', '호떡', '까망', '구름', '밤톨', '루루'];
+  $('cat-name').value = pick(names); syncChips();
+});
+$('creator-start').addEventListener('click', () => {
+  const name = ($('cat-name').value || '').trim() || '모모';
+  state = newState({ name, fur:draft.fur, pattern:draft.pattern, eye:draft.eye });
+  Object.assign(cat, { x:480, y:470, dir:1, act:{ type:'sit', dur:3 }, alpha:1, hidden:false, pose:'sit' });
+  toy = null; doorTarget = 0; $('gone').hidden = true;
+  nextQuote = nowS() + rand(15, 25);
+  closeCreator(); save(); renderUI();
+  say(pick(L.hello));
+});
+const pv = $('preview'), pctx = pv.getContext('2d');
+function drawPreview(){
+  const r = pv.getBoundingClientRect(); if (!r.width) return;
+  const dpr = Math.min(2, window.devicePixelRatio || 1), w = 400, h = 200;
+  if (pv.width !== Math.round(r.width * dpr)){ pv.width = Math.round(r.width * dpr); pv.height = Math.round(r.height * dpr); }
+  pctx.setTransform(pv.width / w, 0, 0, pv.height / h, 0, 0);
+  pctx.fillStyle = '#c5d1c3'; pctx.fillRect(0, 0, w, 130); pctx.fillStyle = '#e4dfd2'; pctx.fillRect(0, 124, w, 6);
+  pctx.fillStyle = '#b48a5f'; pctx.fillRect(0, 130, w, 70);
+  const t = nowS(), look = { fur:draft.fur, pattern:draft.pattern, eye:draft.eye };
+  drawCat(pctx, { x:130, y:176, s:1.55, dir:1, pose:'sit', t, walkPhase:0, fat:1, look, expr:(t % 6) < 1.4 ? 'happy' : 'normal', earsBack:false });
+  drawCat(pctx, { x:290, y:176, s:1.25, dir:-1, pose:'walk', t, walkPhase:t * 6, fat:1, look, expr:'normal', earsBack:false });
+}
+
+/* ---------- notebook ---------- */
+function fmtTime(ms){ const d = new Date(ms); return `${d.getMonth() + 1}월 ${d.getDate()}일 ` + d.toLocaleTimeString('ko-KR', { hour:'numeric', minute:'2-digit' }); }
+$('open-notes').addEventListener('click', () => {
+  const ul = $('notes-list'); ul.innerHTML = '';
+  const qs = state ? state.quotes.slice().reverse() : [];
+  if (!qs.length){ const p = document.createElement('p'); p.className = 'empty'; p.textContent = '아직 들은 말이 없어요. 고양이는 하고 싶을 때만 말해요. 배가 고프면 아예 안 해요.'; ul.appendChild(p); }
+  qs.forEach(q => { const li = document.createElement('li'); const qq = document.createElement('q'); qq.textContent = q.text; const sm = document.createElement('small'); sm.textContent = fmtTime(q.at); li.append(qq, sm); ul.appendChild(li); });
+  $('notebook').hidden = false;
+});
+$('notes-close').addEventListener('click', () => { $('notebook').hidden = true; });
+$('open-new').addEventListener('click', () => openCreator(true));
+document.addEventListener('keydown', e => { if (e.key === 'Escape'){ $('notebook').hidden = true; if (state && creatorOpen) closeCreator(); } });
+
+/* ---------- UI ---------- */
+function moodLabel(m){ return m >= 80 ? '아주 행복함' : m >= 60 ? '기분 좋음' : m >= 40 ? '그럭저럭' : m >= 25 ? '삐짐' : '냉담함'; }
+function fullLabel(f){ return f >= 80 ? '배부름' : f >= 50 ? '든든함' : f >= 25 ? '출출함' : f > 0 ? '배고픔' : '굶는 중'; }
+function weightLabel(w){ return w < 3.0 ? '앙상함' : w < 3.8 ? '날씬함' : w < 4.8 ? '보통' : w < 5.8 ? '통통함' : w < 7 ? '뚱냥이' : '거대 고양이'; }
+const WMIN = 2.4, WMAX = 9;
+$('w-zone').style.left = ((3.8 - WMIN) / (WMAX - WMIN) * 100) + '%';
+$('w-zone').style.width = ((4.8 - 3.8) / (WMAX - WMIN) * 100) + '%';
+function renderUI(){
+  if (!state) return;
+  const s = state, name = s.look.name;
+  $('cat-title').textContent = name;
+  const days = Math.floor((s.gameTime - s.adoptedAt) / 86400000) + 1;
+  $('cat-sub').textContent = s.status === 'gone' ? `집을 나간 지 ${Math.floor(s.goneH)}시간` :
+    `함께한 지 ${days}일째 · ${moodLabel(s.mood)} · ${weightLabel(s.weight)}` + (s.leaving ? ' · 문 쪽으로 가는 중' : '');
+  const d = new Date(s.gameTime);
+  $('clock-time').textContent = d.toLocaleTimeString('ko-KR', { hour:'numeric', minute:'2-digit' });
+  $('clock-day').textContent = `${d.getMonth() + 1}월 ${d.getDate()}일`;
+  const home = s.status === 'home';
+  $('v-full').textContent = home ? `${Math.round(s.full)} · ${fullLabel(s.full)}` : '-';
+  $('f-full').style.width = (home ? s.full : 0) + '%';
+  $('f-full').style.background = s.full < 25 ? 'var(--danger)' : s.full < 50 ? 'var(--warn)' : 'var(--accent)';
+  $('v-mood').textContent = home ? `${Math.round(s.mood)} · ${moodLabel(s.mood)}` : '-';
+  $('f-mood').style.width = (home ? s.mood : 0) + '%';
+  $('f-mood').style.background = s.mood < 30 ? 'var(--danger)' : s.mood < 55 ? 'var(--warn)' : 'var(--good)';
+  $('v-weight').textContent = `${s.weight.toFixed(2)} kg · ${weightLabel(s.weight)}`;
+  $('f-weight').style.left = ((s.weight - WMIN) / (WMAX - WMIN) * 100) + '%';
+  const r = risk();
+  $('v-risk').textContent = home ? (s.leaving ? '나가는 중' : `${Math.round(r)}%`) : '나감';
+  $('f-risk').style.width = (home ? (s.leaving ? 100 : r) : 100) + '%';
+  $('cold-badge').hidden = !isCold();
+  const counts = {}; s.bowl.forEach(b => counts[b] = (counts[b] || 0) + 1);
+  $('bowl-state').textContent = '밥그릇: ' + (s.bowl.length ? Object.entries(counts).map(([k, n]) => `${FOODS[k].name} ${n}`).join(' · ') + ` (최대 3개)` : '비어 있음');
+  document.querySelectorAll('[data-speed]').forEach(b => b.setAttribute('aria-pressed', +b.dataset.speed === s.speed ? 'true' : 'false'));
+  $('speed-note').textContent = s.speed === 1 ? '실시간: 배불리 먹이면 반나절은 버티지만, 계속 굶기면 하루 안에 떠납니다. 창을 닫아 두어도 시간은 흐릅니다.' :
+    s.speed === 10 ? '10배: 현실 6분이 방 안의 1시간입니다. 창을 닫은 동안은 실시간으로 흐릅니다.' :
+    '60배: 현실 1분이 방 안의 1시간입니다. 굶기면 20분 안팎이면 떠납니다.';
+  $('open-notes').textContent = `명언 수첩 (${s.quotes.length})`;
+  if (s.status === 'gone' && !s.returning && $('gone').hidden && !goneDismissed) showGone();
+  if (s.status === 'home' && !$('gone').hidden) $('gone').hidden = true;
+}
+
+/* ---------- render ---------- */
+function exprNow(){
+  if (cat.pose === 'sleep') return 'sleep';
+  if (isCold()) return 'cold';
+  if (nowS() < cat.happyUntil || (state.mood >= 85 && cat.pose === 'sit')) return 'happy';
+  if (state.mood < 45 || state.full < 30) return 'annoyed';
+  return 'normal';
+}
+function draw(){
+  const g = ctx; g.setTransform(sc, 0, 0, sc, 0, 0);
+  const h = hourOf();
+  drawRoom(g, h, doorOpen);
+  drawBedBack(g);
+  const items = [{ y:BOWL.y, d:() => drawBowl(g) }, { y:BED.y + 18, d:() => drawBedFront(g) }];
+  if (toy) items.push({ y:toy.y, d:() => drawToy(g, toy) });
+  if (state && !cat.hidden){
+    const o = { x:cat.x, y:cat.y, s:scaleAt(cat.y), dir:cat.dir, pose:cat.pose, t:cat.t, walkPhase:cat.walkPhase, fat:fat(), look:state.look,
+      expr:exprNow(), earsBack:isCold(), alpha:cat.alpha, gaze:cat.act && cat.act.gaze };
+    items.push({ y:cat.y, d:() => drawCat(g, o) });
+  }
+  items.sort((a, b) => a.y - b.y).forEach(i => i.d());
+  // particles
+  for (let i = particles.length - 1; i >= 0; i--){
+    const p = particles[i]; p.life -= 1 / 60; if (p.life <= 0){ particles.splice(i, 1); continue; }
+    const k = 1 - p.life / p.max; g.globalAlpha = Math.min(1, p.life / p.max * 1.6);
+    if (p.k === 'z'){ g.fillStyle = '#3b4a5c'; g.font = `${14 + k * 8}px Jua, sans-serif`; g.fillText('z', p.x + Math.sin(k * 6) * 6 + k * 14, p.y - k * 40); }
+    else if (p.k === 'heart'){ const x = p.x, y = p.y - k * 30, r = 6; g.fillStyle = '#e06b7d'; g.beginPath(); g.moveTo(x, y + r); g.bezierCurveTo(x - r * 1.6, y - r * 0.2, x - r * 0.6, y - r * 1.4, x, y - r * 0.4); g.bezierCurveTo(x + r * 0.6, y - r * 1.4, x + r * 1.6, y - r * 0.2, x, y + r); g.fill(); }
+    else if (p.k === 'dots'){ g.fillStyle = '#2a3036'; for (let j = 0; j < 3; j++){ ell(g, p.x - 8 + j * 8, p.y - k * 10, 2.2, 2.2); g.fill(); } }
+    else if (p.k === 'crumb'){ g.fillStyle = '#8e5f33'; for (let j = 0; j < 4; j++){ ell(g, p.x - 10 + j * 7, p.y - Math.sin(k * Math.PI) * 10 - j, 1.6, 1.6); g.fill(); } }
+    g.globalAlpha = 1;
+  }
+  // night: the room dims, the lamp keeps a pool of light
+  const dark = 1 - daylight(h);
+  if (dark > 0.01){
+    const ng = g.createRadialGradient(676, 230, 20, 676, 330, 620);
+    ng.addColorStop(0, `rgba(18,22,40,${dark * 0.05})`); ng.addColorStop(0.35, `rgba(18,22,40,${dark * 0.3})`); ng.addColorStop(1, `rgba(18,22,40,${dark * 0.55})`);
+    g.fillStyle = ng; g.fillRect(0, 0, W, H);
+    const lg = g.createRadialGradient(676, 205, 4, 676, 260, 230);
+    lg.addColorStop(0, `rgba(255,214,140,${dark * 0.35})`); lg.addColorStop(1, 'rgba(255,214,140,0)');
+    g.fillStyle = lg; g.fillRect(400, 0, 560, H);
+  }
+  const warm = warmth(h) * daylight(h);
+  if (warm > 0.01){ g.fillStyle = `rgba(255,150,70,${warm * 0.1})`; g.fillRect(0, 0, W, H); }
+}
+
+/* ---------- loop ---------- */
+let last = performance.now(), uiT = 0, saveT = 0;
+function frame(now){
+  const dt = Math.min(0.1, (now - last) / 1000); last = now;
+  if (state && !creatorOpen){
+    if (Date.now() - state.lastReal > 3000) catchUp();
+    state.lastReal = Date.now();
+    simulate(dt * state.speed / 3600, false);
+    updateCat(dt);
+    speechTick();
+  }
+  draw();
+  placeBubble();
+  if (creatorOpen) drawPreview();
+  uiT += dt; if (uiT > 0.25){ uiT = 0; renderUI(); }
+  saveT += dt; if (saveT > 5){ saveT = 0; save(); }
+  requestAnimationFrame(frame);
+}
+document.addEventListener('visibilitychange', () => { if (document.hidden) save(); });
+window.addEventListener('pagehide', save);
+
+/* ---------- boot ---------- */
+resize();
+state = load();
+if (state){
+  if (state.leaving){ state.leaving = false; goneNow(); }   // the page closed while the cat was on its way out
+  if (state.returning){ returnNow(); }
+  catchUp();
+  renderUI();
+  if (state.status === 'gone') showGone();
+  else setTimeout(() => say(isCold() ? pick(L.cold) : pick(L.idle), isCold() ? 'cold' : 'normal'), 900);
+} else {
+  openCreator(false);
+}
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
