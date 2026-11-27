@@ -142,7 +142,14 @@ _NOT_LIMIT = re.compile(r"(제한하지|제한없|제한을두지|해당없|미�
 
 def _norm(text: str) -> str:
     t = re.sub(r"\s+", "", text)
-    return re.sub(r"[·ㆍ‧∙・•,]", "", t)
+    # 가운뎃점·쉼표·따옴표·괄호는 지워서 문구 모양을 하나로 맞춤
+    return re.sub(r"[·ㆍ‧∙・•,‘’'\"“”<>〈〉《》「」『』()\[\]{}]", "", t)
+
+
+# 예) "소기업 또는 소상공인으로서 <소기업·소상공인 확인서>를 소지한 업체이어야 합니다"
+#     "…소상공인으로서 『중소기업·소상공인 및 장애인기업 확인요령』에 따라 발급된 소기업·소상공인 확인서를 소지한 자"
+_AS_QUALIFIED = re.compile(r"소상공인(?:으로서|이어야|이여야|에해당하는자)")
+_BENEFIT = re.compile(r"(가점|감점|우대|배점|평가|면제|감면|할인|우선구매)")
 
 
 def small_biz_restriction(text: str) -> str | None:
@@ -152,6 +159,12 @@ def small_biz_restriction(text: str) -> str | None:
         if _NOT_LIMIT.search(t[m.end() - 4:m.end() + 15]):
             continue
         return t[max(0, m.start() - 10):m.end() + 10]
+    for m in _AS_QUALIFIED.finditer(t):
+        span = t[m.start():m.end() + 150]
+        if m.group().startswith("소상공인이") or "확인서" in span:
+            if _BENEFIT.search(span[:120]) or "제한하지" in span[:60]:
+                continue  # 확인서 내면 가점·보증금 면제 같은 혜택 얘기
+            return t[max(0, m.start() - 15):m.end() + 35]
     return None
 
 
