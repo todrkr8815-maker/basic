@@ -4,6 +4,11 @@ on:
   schedule:
     - cron: "10 22 * * 0-4"   # UTC 22:10 일~목 = 한국시간 월~금 오전 7:10
   workflow_dispatch:            # Actions 탭에서 수동 실행
+    inputs:
+      notify:
+        description: "메일 보내기"
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -17,13 +22,15 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: 공고서 읽기 도구 설치 (hwp·pdf)
+        run: pip install --quiet olefile==0.47 pypdf==5.1.0
       - name: 공고 수집·필터·알림
         env:
           G2B_SERVICE_KEY: ${{ secrets.G2B_SERVICE_KEY }}
           SMTP_USER: ${{ secrets.SMTP_USER }}
           SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
           MAIL_TO: ${{ secrets.MAIL_TO }}
-        run: python g2b-monitor/monitor.py --notify --out report.md ${{ github.event_name == 'schedule' && '--scheduled' || '' }}
+        run: python g2b-monitor/monitor.py --out report.md ${{ github.event.inputs.notify != 'false' && '--notify' || '' }} ${{ github.event_name == 'schedule' && '--scheduled' || '' }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:

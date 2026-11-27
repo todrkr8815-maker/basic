@@ -39,6 +39,8 @@ OPS = {
     "용역": "getBidPblancListInfoServcPPSSrch02",
 }
 RGN_OP = "getBidPblancListInfoPrtcptPsblRgn02"  # 참가가능지역 조회
+ATCH_OP = "getBidPblancListInfoAtchFileInfo02"  # 첨부파일(공고서) 목록
+BSNS_DIV = {"물품": "1", "용역": "5"}
 RGN_LOOKUP_MAX = 80  # 하루 조회 수 한도 보호
 OTHER_REGIONS = ("서울", "부산", "대구", "인천", "광주", "울산", "경기", "강원",
                  "충청남도", "충남", "전라", "전북", "전남", "경상", "경북", "경남", "제주")
@@ -212,6 +214,72 @@ def place(it: dict, city: str, out: dict, rcfg: dict) -> None:
         out["new"].append(it)
 
 
+def regions_of(it: dict, key: str) -> str:
+    """참가가능지역 이름들을 공백으로 이어서 (빈 문자열 = 지역 제한 없음). 한 번 조회하면 저장."""
+    if "_regions" not in it:
+        params = {"inqryDiv": "2", "bidNtceNo": it.get("bidNtceNo", ""), "bidNtceOrd": it.get("bidNtceOrd") or "000"}
+        rows = fetch_all(RGN_OP, params, key, None)
+        it["_regions"] = " ".join(dict.fromkeys(r.get("prtcptPsblRgnNm") or "" for r in rows)).strip()
+    return it["_regions"]
+
+
+def notice_texts(it: dict, key: str) -> tuple[list[str], list[str]]:
+    """공고서 첨부파일을 내려받아 글자를 꺼낸다. (읽은 글자 목록, 읽은/못 읽은 파일 메모)."""
+    import notice_doc
+    params = {"inqryDiv": "2", "bidNtceNo": it.get("bidNtceNo", ""), "bidNtceOrd": it.get("bidNtceOrd") or "000",
+              "bsnsDivCd": BSNS_DIV.get(it.get("_kind", ""), "1")}
+    rows = fetch_all(ATCH_OP, params, key, None)
+    files = [r for r in rows if "공고" in (r.get("docDivNm") or "") + (r.get("atchFileNm") or "")] or rows
+    texts, notes = [], []
+    for r in files[:3]:
+        name, url = r.get("atchFileNm") or "", r.get("atchFileUrl") or ""
+        data = notice_doc.download(url) if url else None
+        text = notice_doc.extract_text(name, data) if data else None
+        notes.append(f"{name}: {'읽음' if text else ('다운로드 실패' if not data else '읽지 못함')}")
+        if text:
+            texts.append(text)
+    return texts, notes
+
+
+def eligibility(out: dict, cfg: dict, key: str, mock: str | None, errors: list[str]) -> None:
+    """참가할 수 없는 공고를 뺀다: 충북이 빠진 지역제한, 소기업·소상공인 제한."""
+    import notice_doc
+    out["excluded"] = []
+    if mock:
+        return
+    for bucket in ("new", "check", "general"):
+        keep = []
+        for it in out[bucket]:
+            reason = None
+            if cfg.get("exclude_other_region_limit", True):
+                try:
+                    regions = regions_of(it, key)
+                    if regions and not any(w in regions for w in ("충청북도", "충북")):
+                        reason = f"참가지역 제한 ({regions})"
+                except ApiError as e:
+                    errors.append(f"참가가능지역 {it.get('bidNtceNo')}: {e}")
+            if not reason and cfg.get("exclude_small_biz_limit", True):
+                fields = " ".join(it.get(f) or "" for f in ("bidNtceNm", "cntrctCnclsMthdNm", "sucsfbidMthdNm", "sucsfbidMthdAppStd"))
+                hit = notice_doc.small_biz_restriction(fields)
+                if not hit:
+                    try:
+                        texts, notes = notice_texts(it, key)
+                    except ApiError as e:
+                        texts, notes = [], [f"첨부목록 조회 실패: {e}"]
+                    print(f"[공고서] {it.get('bidNtceNo')} {it.get('bidNtceNm', '')[:30]} — {'; '.join(notes) or '첨부 없음'}",
+                          file=sys.stderr)
+                    it["_doc_ok"] = bool(texts)
+                    hit = next((h for h in map(notice_doc.small_biz_restriction, texts) if h), None)
+                if hit:
+                    reason = f"소기업·소상공인 제한 (\"…{hit}…\")"
+            if reason:
+                it["_why"] = reason
+                out["excluded"].append(it)
+            else:
+                keep.append(it)
+        out[bucket] = keep
+
+
 def resolve_unknown(out: dict, cfg: dict, key: str, mock: str | None, errors: list[str]) -> None:
     """기관명으로 위치를 못 찾은 공고는 나라장터 '참가가능지역'으로 충북 공고인지 확인한다.
 
@@ -224,15 +292,13 @@ def resolve_unknown(out: dict, cfg: dict, key: str, mock: str | None, errors: li
             if looks_in_area(it, rcfg):
                 out["check"].append(it)
             continue
-        params = {"inqryDiv": "2", "bidNtceNo": it.get("bidNtceNo", ""), "bidNtceOrd": it.get("bidNtceOrd") or "000"}
         try:
-            rows = fetch_all(RGN_OP, params, key, None)
+            regions = regions_of(it, key)
         except ApiError as e:
             errors.append(f"참가가능지역 {it.get('bidNtceNo')}: {e}")
             if looks_in_area(it, rcfg):
                 out["check"].append(it)
             continue
-        regions = " ".join(r.get("prtcptPsblRgnNm") or "" for r in rows)
         if not any(w in regions for w in ("충청북도", "충북", "세종", "대전")):
             if not regions.strip() and looks_in_area(it, rcfg):
                 out["check"].append(it)
@@ -317,7 +383,8 @@ def entry(it: dict, now: datetime, cfg: dict) -> list[str]:
         f"[{it['_kind']}] {it.get('bidNtceNm', '')}{star}{kind_note(it)}",
         f"  기관: {it.get('dminsttNm') or it.get('ntceInsttNm', '')} ({where})",
         f"  게시 {fmt_dt(it['_posted'])} · 마감 {fmt_dt(it['_close'])} {dday(it['_close'], now)}",
-        f"  {label or '추정가격'}: {won(price)} · {it.get('cntrctCnclsMthdNm') or '계약방법 미기재'}",
+        f"  {label or '추정가격'}: {won(price)} · {it.get('cntrctCnclsMthdNm') or '계약방법 미기재'}"
+        + (" · ⚠️공고서 자동확인 못함" if it.get("_doc_ok") is False else ""),
         f"  {link(it)}",
     ]
 
@@ -349,6 +416,9 @@ def render(out: dict, now: datetime, start: datetime, end: datetime, errors: lis
                 lines += entry(it, now, cfg) + [""]
     if not any(out[k] for k, _ in SECTIONS):
         lines.append("새로 올라온 공고가 없습니다.")
+    if out.get("excluded"):
+        lines += ["", f"🚫 참가 불가로 제외한 공고 — {len(out['excluded'])}건"]
+        lines += [f"  - {it.get('bidNtceNm', '')[:50]} → {it['_why']}" for it in out["excluded"]]
     if errors:
         lines += ["", "⚠️ 조회 오류 (이번엔 공고를 놓쳤을 수 있음):"] + [f"  - {e}" for e in errors[:10]]
     return title, "\n".join(lines).rstrip() + "\n"
@@ -373,7 +443,9 @@ def build_email(out: dict, now: datetime, start: datetime, end: datetime,
                 f'<td style="padding:10px;border-bottom:1px solid #eee;vertical-align:top">{tag}</td>'
                 f'<td style="padding:10px;border-bottom:1px solid #eee">'
                 f'<a href="{e(link(it))}" style="font-weight:bold;color:#1a5fb4;text-decoration:none">{e(it.get("bidNtceNm"))}</a>'
-                f'{star}{e(kind_note(it))}<br>'
+                f'{star}{e(kind_note(it))}'
+                + (' <span style="color:#b26a00">⚠️공고서 자동확인 못함</span>' if it.get("_doc_ok") is False else "")
+                + '<br>'
                 f'<span style="color:#555">{e(it.get("dminsttNm") or it.get("ntceInsttNm"))} ({e(where)}) · {e(it["_kind"])}</span></td>'
                 f'<td style="padding:10px;border-bottom:1px solid #eee;white-space:nowrap">'
                 f'{e(fmt_dt(it["_close"]))}<br><b>{e(dday(it["_close"], now))}</b></td>'
@@ -391,6 +463,10 @@ def build_email(out: dict, now: datetime, start: datetime, end: datetime,
         warn = ('<p style="background:#fff3cd;padding:10px">⚠️ 나라장터 조회 중 오류가 나서 이번엔 공고를 놓쳤을 수 있습니다.<br>'
                 + "<br>".join(e(x) for x in errors[:5]) + "</p>")
     none = "" if rows else "<p>새로 올라온 공고가 없습니다.</p>"
+    if out.get("excluded"):
+        none += ('<p style="color:#888;font-size:13px;margin-top:18px">🚫 참가 불가로 제외한 공고<br>'
+                 + "<br>".join(f'· <a href="{e(link(it))}" style="color:#888">{e(it.get("bidNtceNm"))}</a> → {e(it["_why"])}'
+                               for it in out["excluded"]) + "</p>")
     page = (f'<div style="font-family:sans-serif;max-width:760px">'
             f'<h2 style="font-size:18px">{e(title)}</h2>'
             f'<p style="color:#666">게시 구간 {e(fmt_dt(start))} ~ {e(fmt_dt(end))} · 청주 {cfg["region"]["max_minutes"]}분 권역 · 물품/용역</p>'
@@ -455,6 +531,7 @@ def main() -> int:
     out = classify(items, cfg, now, start, end)
     resolve_unknown(out, cfg, key, args.mock, errors)
     split_general(out)
+    eligibility(out, cfg, key, args.mock, errors)
     far = datetime.max.replace(tzinfo=KST)
     for k in out:
         out[k].sort(key=lambda x: x.get("_close") or far)
